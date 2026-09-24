@@ -1,0 +1,13 @@
+{
+  "name": "vtl-bot",
+  "version": "1.0.0",
+  "description": "Bot oficial da Virtual TCS League",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "discord.js": "^14.25.1"
+  }
+}

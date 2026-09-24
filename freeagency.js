@@ -22,13 +22,13 @@ const FREEAGENCY_CHANNEL_ID =
     config.FREEAGENCY_CHANNEL_ID;
 
 // ======================================================
-// COMANDO /FREEAGENCY
+// COMANDO
 // ======================================================
 
 const freeagencyCommand =
     new SlashCommandBuilder()
         .setName("freeagency")
-        .setDescription("Envia seu jogador para a lista de Free Agents.");
+        .setDescription("Envia seu jogador para a Free Agency.");
 
 // ======================================================
 // MODAL
@@ -60,7 +60,7 @@ function abrirModalFreeAgency(interaction) {
 }
 
 // ======================================================
-// CONTAINER FREE AGENCY
+// CONTAINER
 // ======================================================
 
 function criarFreeAgencyContainer({
@@ -71,24 +71,14 @@ function criarFreeAgencyContainer({
     const container =
         new ContainerBuilder();
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            "## 🟢 FREE AGENCY\n\n" +
-            `**Jogador:** ${user}\n` +
-            `**ID:** \`${user.id}\`\n\n` +
-            `**Descrição:**\n${descricao}`
-        )
-    );
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
     container.addSectionComponents(
         new SectionBuilder()
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "Jogador disponível para contratação."
+                    "## 🟢 FREE AGENCY\n\n" +
+                    `**Jogador:** ${user}\n` +
+                    `**ID:** \`${user.id}\`\n\n` +
+                    `**Descrição:**\n${descricao}`
                 )
             )
             .setThumbnail(
@@ -108,6 +98,16 @@ function criarFreeAgencyContainer({
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
+            "🟢 Este jogador está disponível para contratação."
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
             "-# VTL - FREE AGENCY"
         )
     );
@@ -116,28 +116,19 @@ function criarFreeAgencyContainer({
 }
 
 // ======================================================
-// EXECUTAR COMANDO
+// EXECUTAR /FREEAGENCY
 // ======================================================
 
 async function executarFreeAgency(interaction) {
 
-    if (
-        interaction.channelId !==
-        FREEAGENCY_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ O comando deve ser usado em <#${FREEAGENCY_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
+    // NÃO verifica o canal.
+    // O comando pode ser usado em qualquer canal.
 
     return abrirModalFreeAgency(interaction);
 }
 
 // ======================================================
-// INTERAÇÃO DO MODAL
+// PROCESSAR MODAL
 // ======================================================
 
 async function handleFreeAgencyInteraction(interaction) {
@@ -163,7 +154,7 @@ async function handleFreeAgencyInteraction(interaction) {
 
         return interaction.reply({
             content:
-                "❌ Não foi possível encontrar o canal de Free Agency.",
+                `❌ Não encontrei o canal de Free Agency (<#${FREEAGENCY_CHANNEL_ID}>).`,
             ephemeral: true
         });
     }
@@ -179,23 +170,21 @@ async function handleFreeAgencyInteraction(interaction) {
         flags: MessageFlags.IsComponentsV2
     });
 
-    await interaction.reply({
+    return interaction.reply({
         content:
-            "✅ Seu jogador foi enviado para a Free Agency!",
+            `✅ Seu jogador foi enviado para <#${FREEAGENCY_CHANNEL_ID}>!`,
         ephemeral: true
     });
-
-    return true;
 }
 
 // ======================================================
 // EXPORTS
 // ======================================================
 
-freeagencyCommand.execute = executarFreeAgency;
+freeagencyCommand.execute =
+    executarFreeAgency;
 
 module.exports = {
     freeagencyCommand,
     handleFreeAgencyInteraction
 };
-

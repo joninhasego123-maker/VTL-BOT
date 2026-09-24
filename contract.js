@@ -1,115 +1,82 @@
 const {
     SlashCommandBuilder,
+    PermissionFlagsBits,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
     ContainerBuilder,
     TextDisplayBuilder,
-    SeparatorBuilder,
-    MessageFlags
+    SeparatorBuilder
 } = require("discord.js");
 
-const config = require("./config");
 const supabase = require("./supabase");
 
 // ======================================================
 // CONFIGURAÇÕES
 // ======================================================
 
-const CONTRACT_CHANNEL_ID =
-    config.CONTRACT_CHANNEL_ID;
+const CONTRACT_CHANNEL_ID = "1552636518886019072";
+const CONTRACT_LOG_CHANNEL_ID = "1552634532262584391";
 
-const CONTRACT_LOG_CHANNEL_ID =
-    config.CONTRACT_LOG_CHANNEL_ID;
+const POSITIONS = [
+    "Goleiro",
+    "Zagueiro",
+    "Volante",
+    "Meia",
+    "Atacante"
+];
 
-// ======================================================
-// TIMES / CARGOS
-// ======================================================
-
-const TEAMS = [
-    {
-        name: "Corinthians",
-        roleId: "1550260388866691213"
-    },
-    {
-        name: "Flamengo",
-        roleId: "1550259753903718450"
-    },
-    {
-        name: "Cruzeiro",
-        roleId: "1550259441054654494"
-    },
-    {
-        name: "Grêmio",
-        roleId: "1550259517105766410"
-    },
-    {
-        name: "Atlético Mineiro",
-        roleId: "1550259846010380368"
-    },
-    {
-        name: "Vitória",
-        roleId: "1550260303474729061"
-    },
-    {
-        name: "Bahia",
-        roleId: "1550260226551185508"
-    },
-    {
-        name: "São Paulo",
-        roleId: "1550260711979221062"
-    },
-    {
-        name: "Palmeiras",
-        roleId: "1550260057021882508"
-    },
-    {
-        name: "Internacional",
-        roleId: "1550259618889072650"
-    }
+const FUNCTIONS = [
+    "Titular",
+    "Reserva",
+    "Assist Manager"
 ];
 
 // ======================================================
-// FUNÇÕES AUXILIARES
+// VERIFICAR CANAL
 // ======================================================
 
-function getTeamByRoleId(roleId) {
-    return TEAMS.find(team => team.roleId === roleId);
+function verificarCanal(interaction) {
+    return interaction.channelId === CONTRACT_CHANNEL_ID;
 }
 
-function getTeamByName(name) {
-    return TEAMS.find(
-        team =>
-            team.name.toLowerCase() ===
-            name.toLowerCase()
-    );
-}
+// ======================================================
+// CONTAINER DO CONTRATO
+// ======================================================
 
-function criarContainerContrato({
-    guild,
+function criarContratoContainer({
     manager,
     player,
-    team,
+    teamRole,
     position,
-    funcao
+    funcao,
+    contractId,
+    status = "pending"
 }) {
 
-    const container =
-        new ContainerBuilder();
+    let statusText = "⏳ Aguardando resposta do jogador.";
+
+    if (status === "accepted") {
+        statusText = "✅ Contrato aceito pelo jogador.";
+    }
+
+    if (status === "declined") {
+        statusText = "❌ Contrato recusado pelo jogador.";
+    }
+
+    const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            "## 📄 CONTRATO VTL\n\n" +
-
-            `**Team:** ${team.name}\n` +
+            "## 📄 CONTRATO OFICIAL\n\n" +
+            `**Time:** ${teamRole}\n` +
             `**Manager:** ${manager}\n` +
-            `**Manager ID:** \`${manager.id}\`\n\n` +
-
+            `**Manager ID:** \`${manager.id}\`\n` +
             `**Player:** ${player}\n` +
             `**Player ID:** \`${player.id}\`\n\n` +
-
             `**Posição:** ${position}\n` +
-            `**Função:** ${funcao}`
+            `**Função:** ${funcao}\n\n` +
+            `**Status:** ${statusText}`
         )
     );
 
@@ -117,39 +84,30 @@ function criarContainerContrato({
         new SeparatorBuilder()
     );
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            "O jogador deve aceitar ou recusar este contrato."
-        )
-    );
+    if (status === "pending") {
 
-    const aceitarId =
-        `contract_accept_${manager.id}_${player.id}_${team.roleId}`;
+        const row =
+            new ActionRowBuilder().addComponents(
 
-    const recusarId =
-        `contract_decline_${manager.id}_${player.id}_${team.roleId}`;
+                new ButtonBuilder()
+                    .setCustomId(
+                        `contract_accept_${contractId}`
+                    )
+                    .setLabel("Aceitar")
+                    .setEmoji("✅")
+                    .setStyle(ButtonStyle.Success),
 
-    container.addActionRowComponents(
-        new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(
+                        `contract_decline_${contractId}`
+                    )
+                    .setLabel("Recusar")
+                    .setEmoji("❌")
+                    .setStyle(ButtonStyle.Danger)
+            );
 
-            new ButtonBuilder()
-                .setCustomId(aceitarId)
-                .setLabel("Aceitar")
-                .setEmoji("✅")
-                .setStyle(ButtonStyle.Success),
-
-            new ButtonBuilder()
-                .setCustomId(recusarId)
-                .setLabel("Recusar")
-                .setEmoji("❌")
-                .setStyle(ButtonStyle.Danger)
-
-        )
-    );
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
+        container.addActionRowComponents(row);
+    }
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -161,584 +119,1212 @@ function criarContainerContrato({
 }
 
 // ======================================================
-// VERIFICAR PERMISSÃO DO MANAGER
+// REGISTRAR RESULTADO DO CONTRATO
 // ======================================================
 
-async function verificarPermissao(
-    guildId,
-    managerId,
-    teamRoleId
-) {
-
-    const {
-        data,
-        error
-    } = await supabase
-        .from("manager_permissions")
-        .select("*")
-        .eq("guild_id", guildId)
-        .eq("manager_id", managerId)
-        .eq("team_role_id", teamRoleId)
-        .maybeSingle();
-
-    if (error) {
-
-        console.error(
-            "❌ Erro ao verificar permissão:",
-            error
-        );
-
-        return false;
-    }
-
-    return !!data;
-}
-
-// ======================================================
-// COMANDO /PERM
-// ======================================================
-
-const permCommand =
-    new SlashCommandBuilder()
-        .setName("perm")
-        .setDescription("Concede permissão de Manager para um usuário.")
-        .addUserOption(option =>
-            option
-                .setName("usuario")
-                .setDescription("Usuário que receberá a permissão.")
-                .setRequired(true)
-        )
-        .addRoleOption(option =>
-            option
-                .setName("time")
-                .setDescription("Cargo do time que o Manager poderá administrar.")
-                .setRequired(true)
-        );
-
-// ======================================================
-// COMANDO /UNPERM
-// ======================================================
-
-const unpermCommand =
-    new SlashCommandBuilder()
-        .setName("unperm")
-        .setDescription("Remove a permissão de Manager.")
-        .addUserOption(option =>
-            option
-                .setName("usuario")
-                .setDescription("Usuário que perderá a permissão.")
-                .setRequired(true)
-        );
-
-// ======================================================
-// COMANDO /PERMLIST
-// ======================================================
-
-const permlistCommand =
-    new SlashCommandBuilder()
-        .setName("permlist")
-        .setDescription("Mostra as permissões de Manager deste servidor.");
-
-// ======================================================
-// COMANDO /CONTRACT
-// ======================================================
-
-const contractCommand =
-    new SlashCommandBuilder()
-        .setName("contract")
-        .setDescription("Envia um contrato para um jogador.")
-        .addUserOption(option =>
-            option
-                .setName("jogador")
-                .setDescription("Jogador que receberá o contrato.")
-                .setRequired(true)
-        )
-        .addRoleOption(option =>
-            option
-                .setName("time")
-                .setDescription("Cargo do time.")
-                .setRequired(true)
-        )
-        .addStringOption(option =>
-            option
-                .setName("posicao")
-                .setDescription("Posição do jogador.")
-                .setRequired(true)
-                .addChoices(
-                    {
-                        name: "Goleiro",
-                        value: "Goleiro"
-                    },
-                    {
-                        name: "Zagueiro",
-                        value: "Zagueiro"
-                    },
-                    {
-                        name: "Volante",
-                        value: "Volante"
-                    },
-                    {
-                        name: "Meia",
-                        value: "Meia"
-                    },
-                    {
-                        name: "Atacante",
-                        value: "Atacante"
-                    }
-                )
-        )
-        .addStringOption(option =>
-            option
-                .setName("funcao")
-                .setDescription("Função do jogador.")
-                .setRequired(true)
-                .addChoices(
-                    {
-                        name: "Titular",
-                        value: "Titular"
-                    },
-                    {
-                        name: "Reserva",
-                        value: "Reserva"
-                    }
-                )
-        );
-
-// ======================================================
-// COMANDO /RELEASE
-// ======================================================
-
-const releaseCommand =
-    new SlashCommandBuilder()
-        .setName("release")
-        .setDescription("Libera um jogador do seu time.")
-        .addUserOption(option =>
-            option
-                .setName("jogador")
-                .setDescription("Jogador que será liberado.")
-                .setRequired(true)
-        )
-        .addRoleOption(option =>
-            option
-                .setName("time")
-                .setDescription("Time do jogador.")
-                .setRequired(true)
-        );
-
-// ======================================================
-// /PERM
-// ======================================================
-
-async function executarPerm(interaction) {
-
-    if (
-        interaction.channelId !==
-        CONTRACT_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
-
-    const usuario =
-        interaction.options.getUser("usuario");
-
-    const cargo =
-        interaction.options.getRole("time");
-
-    const team =
-        getTeamByRoleId(cargo.id);
-
-    if (!team) {
-
-        return interaction.reply({
-            content:
-                "❌ Esse cargo não pertence aos times da VTL.",
-            ephemeral: true
-        });
-    }
-
-    const {
-        error
-    } = await supabase
-        .from("manager_permissions")
-        .upsert(
-            {
-                guild_id: interaction.guildId,
-                manager_id: usuario.id,
-                team_role_id: team.roleId
-            },
-            {
-                onConflict:
-                    "guild_id,manager_id"
-            }
-        );
-
-    if (error) {
-
-        console.error(
-            "❌ Erro ao salvar permissão:",
-            error
-        );
-
-        return interaction.reply({
-            content:
-                "❌ Não foi possível salvar a permissão.",
-            ephemeral: true
-        });
-    }
-
-    return interaction.reply({
-        content:
-            `✅ ${usuario} agora possui permissão de Manager do **${team.name}**.`,
-        ephemeral: true
-    });
-}
-
-// ======================================================
-// /UNPERM
-// ======================================================
-
-async function executarUnperm(interaction) {
-
-    if (
-        interaction.channelId !==
-        CONTRACT_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
-
-    const usuario =
-        interaction.options.getUser("usuario");
-
-    const {
-        error
-    } = await supabase
-        .from("manager_permissions")
-        .delete()
-        .eq(
-            "guild_id",
-            interaction.guildId
-        )
-        .eq(
-            "manager_id",
-            usuario.id
-        );
-
-    if (error) {
-
-        console.error(
-            "❌ Erro ao remover permissão:",
-            error
-        );
-
-        return interaction.reply({
-            content:
-                "❌ Não foi possível remover a permissão.",
-            ephemeral: true
-        });
-    }
-
-    return interaction.reply({
-        content:
-            `✅ Permissões de ${usuario} removidas.`,
-        ephemeral: true
-    });
-}
-
-// ======================================================
-// /PERMLIST
-// ======================================================
-
-async function executarPermlist(interaction) {
-
-    if (
-        interaction.channelId !==
-        CONTRACT_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
-
-    const {
-        data,
-        error
-    } = await supabase
-        .from("manager_permissions")
-        .select("*")
-        .eq(
-            "guild_id",
-            interaction.guildId
-        );
-
-    if (error) {
-
-        console.error(
-            "❌ Erro ao buscar permissões:",
-            error
-        );
-
-        return interaction.reply({
-            content:
-                "❌ Não foi possível buscar as permissões.",
-            ephemeral: true
-        });
-    }
-
-    if (!data || data.length === 0) {
-
-        return interaction.reply({
-            content:
-                "📋 Não existem permissões de Manager cadastradas.",
-            ephemeral: true
-        });
-    }
-
-    let texto =
-        "## 📋 PERMISSÕES DE MANAGER\n\n";
-
-    for (const permission of data) {
-
-        const team =
-            getTeamByRoleId(
-                permission.team_role_id
-            );
-
-        texto +=
-            `**Manager:** <@${permission.manager_id}>\n` +
-            `**Time:** ${team ? team.name : "Desconhecido"}\n\n`;
-    }
-
-    return interaction.reply({
-        content: texto,
-        ephemeral: true
-    });
-}
-
-// ======================================================
-// /CONTRACT
-// ======================================================
-
-async function executarContract(interaction) {
-
-    if (
-        interaction.channelId !==
-        CONTRACT_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
-
-    const jogador =
-        interaction.options.getUser("jogador");
-
-    const cargo =
-        interaction.options.getRole("time");
-
-    const posicao =
-        interaction.options.getString("posicao");
-
-    const funcao =
-        interaction.options.getString("funcao");
-
-    const team =
-        getTeamByRoleId(cargo.id);
-
-    if (!team) {
-
-        return interaction.reply({
-            content:
-                "❌ Esse cargo não pertence aos times da VTL.",
-            ephemeral: true
-        });
-    }
-
-    const permitido =
-        await verificarPermissao(
-            interaction.guildId,
-            interaction.user.id,
-            team.roleId
-        );
-
-    if (!permitido) {
-
-        return interaction.reply({
-            content:
-                `❌ Você não possui permissão para enviar contratos do **${team.name}**.`,
-            ephemeral: true
-        });
-    }
-
-    if (jogador.bot) {
-
-        return interaction.reply({
-            content:
-                "❌ Você não pode enviar um contrato para um bot.",
-            ephemeral: true
-        });
-    }
-
-    const container =
-        criarContainerContrato({
-            guild: interaction.guild,
-            manager: interaction.user,
-            player: jogador,
-            team,
-            position: posicao,
-            funcao
-        });
-
-    // ==============================================
-    // MENSAGEM NO CANAL
-    // ==============================================
-
-    await interaction.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-    });
-
-    // ==============================================
-    // ENVIAR DM
-    // ==============================================
+async function registrarContrato({
+    interaction,
+    manager,
+    player,
+    teamRole,
+    position,
+    funcao,
+    status
+}) {
 
     try {
-
-        await jogador.send({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
-        });
-
-    } catch (error) {
-
-        console.error(
-            `⚠️ Não foi possível enviar DM para ${jogador.tag}:`,
-            error
-        );
 
         const logChannel =
             interaction.guild.channels.cache.get(
                 CONTRACT_LOG_CHANNEL_ID
             );
 
-        if (logChannel) {
+        if (!logChannel) {
 
-            await logChannel.send({
-                content:
-                    `⚠️ ${jogador} não pôde receber o contrato por DM.\n` +
-                    `Contrato enviado por ${interaction.user} para o time **${team.name}**.`
-            }).catch(() => {});
+            console.error(
+                `❌ Canal de logs não encontrado: ${CONTRACT_LOG_CHANNEL_ID}`
+            );
+
+            return;
         }
+
+        let statusText = "❓ Desconhecido";
+
+        if (status === "accepted") {
+            statusText = "✅ ACEITO";
+        }
+
+        if (status === "declined") {
+            statusText = "❌ RECUSADO";
+        }
+
+        const container =
+            new ContainerBuilder();
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "## 📋 RESULTADO DO CONTRATO\n\n" +
+                `**Status:** ${statusText}\n\n` +
+                `**Time:** ${teamRole}\n` +
+                `**Manager:** ${manager}\n` +
+                `**Manager ID:** \`${manager.id}\`\n` +
+                `**Player:** ${player}\n` +
+                `**Player ID:** \`${player.id}\`\n\n` +
+                `**Posição:** ${position}\n` +
+                `**Função:** ${funcao}`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "-# VTL - CONTRACT SYSTEM"
+            )
+        );
+
+        await logChannel.send({
+            components: [container],
+            flags: 1 << 15
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ Erro ao registrar resultado do contrato:",
+            error
+        );
     }
 }
+
+// ======================================================
+// /CRIARTIME
+// ======================================================
+
+const criarTimeCommand =
+    new SlashCommandBuilder()
+        .setName("criartime")
+        .setDescription(
+            "Cadastra um novo time na VTL."
+        )
+        .addStringOption(option =>
+            option
+                .setName("nome")
+                .setDescription(
+                    "Nome do time."
+                )
+                .setRequired(true)
+        )
+        .addAttachmentOption(option =>
+            option
+                .setName("logo")
+                .setDescription(
+                    "Imagem do logo do time."
+                )
+                .setRequired(true)
+        )
+        .addRoleOption(option =>
+            option
+                .setName("cargo")
+                .setDescription(
+                    "Cargo que representa o time."
+                )
+                .setRequired(true)
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator
+        );
+
+// ======================================================
+// /PERM
+// ======================================================
+
+const permCommand =
+    new SlashCommandBuilder()
+        .setName("perm")
+        .setDescription(
+            "Dá permissão de Manager para um usuário."
+        )
+        .addUserOption(option =>
+            option
+                .setName("manager")
+                .setDescription(
+                    "Usuário que será Manager."
+                )
+                .setRequired(true)
+        )
+        .addRoleOption(option =>
+            option
+                .setName("time")
+                .setDescription(
+                    "Cargo do time que o Manager poderá gerenciar."
+                )
+                .setRequired(true)
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator
+        );
+
+// ======================================================
+// /UNPERM
+// ======================================================
+
+const unpermCommand =
+    new SlashCommandBuilder()
+        .setName("unperm")
+        .setDescription(
+            "Remove a permissão de Manager."
+        )
+        .addUserOption(option =>
+            option
+                .setName("manager")
+                .setDescription(
+                    "Manager que perderá a permissão."
+                )
+                .setRequired(true)
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator
+        );
+
+// ======================================================
+// /PERMLIST
+// ======================================================
+
+const permlistCommand =
+    new SlashCommandBuilder()
+        .setName("permlist")
+        .setDescription(
+            "Lista os Managers autorizados neste servidor."
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator
+        );
+
+// ======================================================
+// /CONTRACT
+// ======================================================
+
+const contractCommand =
+    new SlashCommandBuilder()
+        .setName("contract")
+        .setDescription(
+            "Envia um contrato para um jogador."
+        )
+        .addUserOption(option =>
+            option
+                .setName("player")
+                .setDescription(
+                    "Jogador que receberá o contrato."
+                )
+                .setRequired(true)
+        )
+        .addStringOption(option =>
+            option
+                .setName("posicao")
+                .setDescription(
+                    "Posição do jogador."
+                )
+                .setRequired(true)
+                .addChoices(
+                    ...POSITIONS.map(position => ({
+                        name: position,
+                        value: position
+                    }))
+                )
+        )
+        .addStringOption(option =>
+            option
+                .setName("funcao")
+                .setDescription(
+                    "Função do jogador."
+                )
+                .setRequired(true)
+                .addChoices(
+                    ...FUNCTIONS.map(funcao => ({
+                        name: funcao,
+                        value: funcao
+                    }))
+                )
+        );
 
 // ======================================================
 // /RELEASE
 // ======================================================
 
-async function executarRelease(interaction) {
-
-    if (
-        interaction.channelId !==
-        CONTRACT_CHANNEL_ID
-    ) {
-
-        return interaction.reply({
-            content:
-                `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
-            ephemeral: true
-        });
-    }
-
-    const jogador =
-        interaction.options.getUser("jogador");
-
-    const cargo =
-        interaction.options.getRole("time");
-
-    const team =
-        getTeamByRoleId(cargo.id);
-
-    if (!team) {
-
-        return interaction.reply({
-            content:
-                "❌ Esse cargo não pertence aos times da VTL.",
-            ephemeral: true
-        });
-    }
-
-    const permitido =
-        await verificarPermissao(
-            interaction.guildId,
-            interaction.user.id,
-            team.roleId
+const releaseCommand =
+    new SlashCommandBuilder()
+        .setName("release")
+        .setDescription(
+            "Libera um jogador do time."
+        )
+        .addUserOption(option =>
+            option
+                .setName("player")
+                .setDescription(
+                    "Jogador que será liberado."
+                )
+                .setRequired(true)
         );
 
-    if (!permitido) {
+// ======================================================
+// EXECUTAR COMANDOS
+// ======================================================
+
+async function executarComando(interaction) {
+
+    // ==================================================
+    // /CRIARTIME
+    // ==================================================
+
+    if (interaction.commandName === "criartime") {
+
+        if (
+            !interaction.memberPermissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você precisa ser administrador para criar um time.",
+                ephemeral: true
+            });
+        }
+
+        if (!interaction.guildId) {
+
+            return interaction.reply({
+                content:
+                    "❌ Este comando só pode ser usado em um servidor.",
+                ephemeral: true
+            });
+        }
+
+        const nome =
+            interaction.options.getString("nome")
+                .trim();
+
+        const logo =
+            interaction.options.getAttachment("logo");
+
+        const cargo =
+            interaction.options.getRole("cargo");
+
+        // ----------------------------------------------
+        // VERIFICAR IMAGEM
+        // ----------------------------------------------
+
+        if (!logo) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você precisa enviar uma imagem como logo.",
+                ephemeral: true
+            });
+        }
+
+        const tiposPermitidos = [
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/webp",
+            "image/gif"
+        ];
+
+        if (
+            logo.contentType &&
+            !tiposPermitidos.includes(
+                logo.contentType
+            )
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // VERIFICAR SE O CARGO JÁ É UM TIME
+        // ----------------------------------------------
+
+        const {
+            data: timeExistente,
+            error: buscaError
+        } = await supabase
+            .from("teams")
+            .select("id, name")
+            .eq("guild_id", interaction.guildId)
+            .eq("role_id", cargo.id)
+            .maybeSingle();
+
+        if (buscaError) {
+
+            console.error(
+                "❌ Erro ao verificar time:",
+                buscaError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível verificar os times cadastrados.",
+                ephemeral: true
+            });
+        }
+
+        if (timeExistente) {
+
+            return interaction.reply({
+                content:
+                    `❌ O cargo ${cargo} já está cadastrado como o time **${timeExistente.name}**.`,
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // VERIFICAR NOME DUPLICADO
+        // ----------------------------------------------
+
+        const {
+            data: nomeExistente,
+            error: nomeError
+        } = await supabase
+            .from("teams")
+            .select("id")
+            .eq("guild_id", interaction.guildId)
+            .ilike("name", nome)
+            .maybeSingle();
+
+        if (nomeError) {
+
+            console.error(
+                "❌ Erro ao verificar nome do time:",
+                nomeError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível verificar o nome do time.",
+                ephemeral: true
+            });
+        }
+
+        if (nomeExistente) {
+
+            return interaction.reply({
+                content:
+                    "❌ Já existe um time com esse nome neste servidor.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // SALVAR TIME
+        // ----------------------------------------------
+
+        const {
+            data: time,
+            error: insertError
+        } = await supabase
+            .from("teams")
+            .insert({
+                guild_id: interaction.guildId,
+                name: nome,
+                logo_url: logo.url,
+                role_id: cargo.id,
+                created_by: interaction.user.id
+            })
+            .select()
+            .single();
+
+        if (insertError) {
+
+            console.error(
+                "❌ Erro ao criar time:",
+                insertError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível cadastrar o time no Supabase.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // RESPOSTA
+        // ----------------------------------------------
+
+        const container =
+            new ContainerBuilder();
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "## ⚽ TIME CADASTRADO\n\n" +
+                `**Nome:** ${time.name}\n` +
+                `**Cargo:** ${cargo}\n` +
+                `**Criado por:** ${interaction.user}\n` +
+                `**ID:** \`${time.id}\``
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "-# VTL - CONTRACT SYSTEM"
+            )
+        );
+
+        return interaction.reply({
+            components: [container],
+            flags: 1 << 15
+        });
+    }
+
+    // ==================================================
+    // /PERM
+    // ==================================================
+
+    if (interaction.commandName === "perm") {
+
+        if (
+            !interaction.memberPermissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você precisa ser administrador para usar este comando.",
+                ephemeral: true
+            });
+        }
+
+        if (!interaction.guildId) {
+
+            return interaction.reply({
+                content:
+                    "❌ Este comando só pode ser usado em um servidor.",
+                ephemeral: true
+            });
+        }
+
+        const manager =
+            interaction.options.getUser("manager");
+
+        const teamRole =
+            interaction.options.getRole("time");
+
+        // ----------------------------------------------
+        // VERIFICAR SE O TIME ESTÁ CADASTRADO
+        // ----------------------------------------------
+
+        const {
+            data: team,
+            error: teamError
+        } = await supabase
+            .from("teams")
+            .select("*")
+            .eq("guild_id", interaction.guildId)
+            .eq("role_id", teamRole.id)
+            .maybeSingle();
+
+        if (teamError) {
+
+            console.error(
+                "❌ Erro ao verificar time no /perm:",
+                teamError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível verificar se o time está cadastrado.",
+                ephemeral: true
+            });
+        }
+
+        if (!team) {
+
+            return interaction.reply({
+                content:
+                    `❌ O cargo ${teamRole} não está cadastrado como um time da VTL.\n\n` +
+                    "Cadastre o time primeiro usando `/criartime`.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // SALVAR PERMISSÃO
+        // ----------------------------------------------
+
+        const { error } =
+            await supabase
+                .from("manager_permissions")
+                .upsert(
+                    {
+                        guild_id: interaction.guildId,
+                        manager_id: manager.id,
+                        team_role_id: teamRole.id
+                    },
+                    {
+                        onConflict:
+                            "guild_id,manager_id"
+                    }
+                );
+
+        if (error) {
+
+            console.error(
+                "❌ Erro no /perm:",
+                error
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível salvar a permissão.",
+                ephemeral: true
+            });
+        }
 
         return interaction.reply({
             content:
-                `❌ Você não possui permissão para administrar o **${team.name}**.`,
+                `✅ ${manager} agora possui permissão de Manager para o time ${teamRole} (**${team.name}**).`,
             ephemeral: true
         });
     }
 
-    const member =
-        await interaction.guild.members
-            .fetch(jogador.id)
-            .catch(() => null);
+    // ==================================================
+    // /UNPERM
+    // ==================================================
 
-    if (!member) {
+    if (interaction.commandName === "unperm") {
+
+        if (
+            !interaction.memberPermissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você precisa ser administrador para usar este comando.",
+                ephemeral: true
+            });
+        }
+
+        const manager =
+            interaction.options.getUser("manager");
+
+        const { error } =
+            await supabase
+                .from("manager_permissions")
+                .delete()
+                .eq(
+                    "guild_id",
+                    interaction.guildId
+                )
+                .eq(
+                    "manager_id",
+                    manager.id
+                );
+
+        if (error) {
+
+            console.error(
+                "❌ Erro no /unperm:",
+                error
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível remover a permissão.",
+                ephemeral: true
+            });
+        }
 
         return interaction.reply({
             content:
-                "❌ Jogador não encontrado no servidor.",
+                `✅ A permissão de ${manager} foi removida neste servidor.`,
             ephemeral: true
         });
     }
+
+    // ==================================================
+    // /PERMLIST
+    // ==================================================
+
+    if (interaction.commandName === "permlist") {
+
+        if (
+            !interaction.memberPermissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você precisa ser administrador para usar este comando.",
+                ephemeral: true
+            });
+        }
+
+        const {
+            data,
+            error
+        } = await supabase
+            .from("manager_permissions")
+            .select(
+                "manager_id, team_role_id"
+            )
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .order(
+                "created_at",
+                {
+                    ascending: true
+                }
+            );
+
+        if (error) {
+
+            console.error(
+                "❌ Erro no /permlist:",
+                error
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível carregar a lista de permissões.",
+                ephemeral: true
+            });
+        }
+
+        if (!data || data.length === 0) {
+
+            return interaction.reply({
+                content:
+                    "📋 **Lista de Managers**\n\n" +
+                    "Nenhum Manager possui permissão neste servidor.",
+                ephemeral: true
+            });
+        }
+
+        let lista = "";
+
+        for (const permission of data) {
+
+            const manager =
+                await interaction.client.users
+                    .fetch(
+                        permission.manager_id
+                    )
+                    .catch(() => null);
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    permission.team_role_id
+                );
+
+            const managerText =
+                manager
+                    ? `${manager} (\`${permission.manager_id}\`)`
+                    : `\`${permission.manager_id}\``;
+
+            const roleText =
+                role
+                    ? role.toString()
+                    : `\`${permission.team_role_id}\``;
+
+            lista +=
+                `👤 **Manager:** ${managerText}\n` +
+                `⚽ **Time:** ${roleText}\n\n`;
+        }
+
+        const container =
+            new ContainerBuilder();
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "## 📋 MANAGERS AUTORIZADOS\n\n" +
+                lista
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "-# VTL - CONTRACT SYSTEM"
+            )
+        );
+
+        return interaction.reply({
+            components: [container],
+            flags: 1 << 15,
+            ephemeral: true
+        });
+    }
+
+    // ==================================================
+    // VERIFICAR CANAL
+    // ==================================================
 
     if (
-        !member.roles.cache.has(
-            team.roleId
-        )
+        interaction.commandName === "contract" ||
+        interaction.commandName === "release"
     ) {
+
+        if (!verificarCanal(interaction)) {
+
+            return interaction.reply({
+                content:
+                    `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
+                ephemeral: true
+            });
+        }
+    }
+
+    // ==================================================
+    // /CONTRACT
+    // ==================================================
+
+    if (interaction.commandName === "contract") {
+
+        const managerId =
+            interaction.user.id;
+
+        const player =
+            interaction.options.getUser("player");
+
+        const position =
+            interaction.options.getString("posicao");
+
+        const funcao =
+            interaction.options.getString("funcao");
+
+        // ----------------------------------------------
+        // BUSCAR PERMISSÃO
+        // ----------------------------------------------
+
+        const {
+            data: permission,
+            error: permissionError
+        } = await supabase
+            .from("manager_permissions")
+            .select(
+                "manager_id, team_role_id"
+            )
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "manager_id",
+                managerId
+            )
+            .maybeSingle();
+
+        if (permissionError) {
+
+            console.error(
+                "❌ Erro ao verificar permissão:",
+                permissionError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Erro ao verificar sua permissão de Manager.",
+                ephemeral: true
+            });
+        }
+
+        if (!permission) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você não possui permissão de Manager neste servidor.\n" +
+                    "Um administrador precisa usar `/perm` primeiro.",
+                ephemeral: true
+            });
+        }
+
+        const teamRole =
+            interaction.guild.roles.cache.get(
+                permission.team_role_id
+            );
+
+        if (!teamRole) {
+
+            return interaction.reply({
+                content:
+                    "❌ O cargo do seu time não foi encontrado neste servidor.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // VERIFICAR SE O TIME AINDA ESTÁ CADASTRADO
+        // ----------------------------------------------
+
+        const {
+            data: team,
+            error: teamError
+        } = await supabase
+            .from("teams")
+            .select("*")
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "role_id",
+                teamRole.id
+            )
+            .maybeSingle();
+
+        if (teamError) {
+
+            console.error(
+                "❌ Erro ao verificar time:",
+                teamError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível verificar o cadastro do seu time.",
+                ephemeral: true
+            });
+        }
+
+        if (!team) {
+
+            return interaction.reply({
+                content:
+                    "❌ Seu time não está mais cadastrado na VTL.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // VERIFICAR CONTRATO EXISTENTE
+        // ----------------------------------------------
+
+        const {
+            data: existingContract,
+            error: existingError
+        } = await supabase
+            .from("contracts")
+            .select("*")
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "player_id",
+                player.id
+            )
+            .eq(
+                "status",
+                "accepted"
+            )
+            .maybeSingle();
+
+        if (existingError) {
+
+            console.error(
+                "❌ Erro ao verificar contrato existente:",
+                existingError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível verificar os contratos do jogador.",
+                ephemeral: true
+            });
+        }
+
+        if (existingContract) {
+
+            return interaction.reply({
+                content:
+                    "❌ Esse jogador já possui um contrato ativo.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // CRIAR CONTRATO
+        // ----------------------------------------------
+
+        const {
+            data: contract,
+            error: contractError
+        } = await supabase
+            .from("contracts")
+            .insert({
+                guild_id: interaction.guildId,
+                manager_id: managerId,
+                manager_role_id: teamRole.id,
+                player_id: player.id,
+                team_role_id: teamRole.id,
+                position: position,
+                function: funcao,
+                status: "pending"
+            })
+            .select()
+            .single();
+
+        if (contractError) {
+
+            console.error(
+                "❌ Erro ao criar contrato:",
+                contractError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível criar o contrato.",
+                ephemeral: true
+            });
+        }
+
+        // ----------------------------------------------
+        // CONTRATO
+        // ----------------------------------------------
+
+        const container =
+            criarContratoContainer({
+                manager: interaction.user,
+                player: player,
+                teamRole: teamRole,
+                position: position,
+                funcao: funcao,
+                contractId: contract.id,
+                status: "pending"
+            });
+
+        const contractMessage =
+            await interaction.channel.send({
+                components: [container],
+                flags: 1 << 15
+            });
+
+        // ----------------------------------------------
+        // SALVAR MENSAGEM
+        // ----------------------------------------------
+
+        await supabase
+            .from("contracts")
+            .update({
+                message_id: contractMessage.id,
+                channel_id: interaction.channelId
+            })
+            .eq(
+                "id",
+                contract.id
+            );
+
+        // ----------------------------------------------
+        // DM
+        // ----------------------------------------------
+
+        try {
+
+            const dm =
+                await player.createDM();
+
+            const dmContainer =
+                criarContratoContainer({
+                    manager: interaction.user,
+                    player: player,
+                    teamRole: teamRole,
+                    position: position,
+                    funcao: funcao,
+                    contractId: contract.id,
+                    status: "pending"
+                });
+
+            await dm.send({
+                components: [dmContainer],
+                flags: 1 << 15
+            });
+
+        } catch (error) {
+
+            console.log(
+                `⚠️ Não foi possível enviar DM para ${player.tag}.`
+            );
+
+            const fallbackChannel =
+                interaction.guild.channels.cache.get(
+                    CONTRACT_LOG_CHANNEL_ID
+                );
+
+            if (fallbackChannel) {
+
+                await fallbackChannel.send({
+                    content:
+                        `⚠️ Não foi possível enviar o contrato por DM para ${player}.`
+                }).catch(() => {});
+            }
+        }
 
         return interaction.reply({
             content:
-                `❌ ${jogador} não possui o cargo do **${team.name}**.`,
+                `✅ Contrato enviado para ${player}.`,
             ephemeral: true
         });
     }
 
-    await member.roles.remove(
-        team.roleId
-    );
+    // ==================================================
+    // /RELEASE
+    // ==================================================
 
-    return interaction.reply({
-        content:
-            `✅ ${jogador} foi liberado do **${team.name}**.`,
-        ephemeral: true
-    });
+    if (interaction.commandName === "release") {
+
+        const managerId =
+            interaction.user.id;
+
+        const player =
+            interaction.options.getUser("player");
+
+        const {
+            data: permission,
+            error: permissionError
+        } = await supabase
+            .from("manager_permissions")
+            .select(
+                "team_role_id"
+            )
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "manager_id",
+                managerId
+            )
+            .maybeSingle();
+
+        if (permissionError) {
+
+            console.error(
+                "❌ Erro ao verificar permissão no /release:",
+                permissionError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Erro ao verificar sua permissão.",
+                ephemeral: true
+            });
+        }
+
+        if (!permission) {
+
+            return interaction.reply({
+                content:
+                    "❌ Você não possui permissão de Manager neste servidor.",
+                ephemeral: true
+            });
+        }
+
+        const {
+            data: contract,
+            error: contractError
+        } = await supabase
+            .from("contracts")
+            .select("*")
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "player_id",
+                player.id
+            )
+            .eq(
+                "team_role_id",
+                permission.team_role_id
+            )
+            .eq(
+                "status",
+                "accepted"
+            )
+            .maybeSingle();
+
+        if (contractError) {
+
+            console.error(
+                "❌ Erro ao buscar contrato:",
+                contractError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível encontrar o contrato.",
+                ephemeral: true
+            });
+        }
+
+        if (!contract) {
+
+            return interaction.reply({
+                content:
+                    "❌ Esse jogador não possui contrato com seu time.",
+                ephemeral: true
+            });
+        }
+
+        const {
+            error: releaseError
+        } = await supabase
+            .from("contracts")
+            .update({
+                status: "released"
+            })
+            .eq(
+                "id",
+                contract.id
+            );
+
+        if (releaseError) {
+
+            console.error(
+                "❌ Erro ao liberar jogador:",
+                releaseError
+            );
+
+            return interaction.reply({
+                content:
+                    "❌ Não foi possível liberar o jogador.",
+                ephemeral: true
+            });
+        }
+
+        return interaction.reply({
+            content:
+                `✅ ${player} foi liberado do time.`,
+            ephemeral: true
+        });
+    }
+
+    return false;
 }
 
 // ======================================================
-// BOTÕES DO CONTRATO
+// PROCESSAR BOTÕES
 // ======================================================
 
 async function processarBotaoContrato(interaction) {
@@ -747,42 +1333,62 @@ async function processarBotaoContrato(interaction) {
         return false;
     }
 
-    const customId =
-        interaction.customId;
-
-    const isAccept =
-        customId.startsWith(
+    if (
+        !interaction.customId.startsWith(
             "contract_accept_"
-        );
-
-    const isDecline =
-        customId.startsWith(
+        ) &&
+        !interaction.customId.startsWith(
             "contract_decline_"
-        );
-
-    if (!isAccept && !isDecline) {
+        )
+    ) {
         return false;
     }
 
-    const partes =
-        customId.split("_");
+    const accepted =
+        interaction.customId.startsWith(
+            "contract_accept_"
+        );
 
-    const managerId =
-        partes[2];
+    const contractId =
+        interaction.customId.replace(
+            accepted
+                ? "contract_accept_"
+                : "contract_decline_",
+            ""
+        );
 
-    const playerId =
-        partes[3];
+    // ----------------------------------------------
+    // BUSCAR CONTRATO
+    // ----------------------------------------------
 
-    const teamRoleId =
-        partes[4];
+    const {
+        data: contract,
+        error
+    } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq(
+            "id",
+            contractId
+        )
+        .maybeSingle();
 
-    // ==============================================
-    // SOMENTE O JOGADOR PODE RESPONDER
-    // ==============================================
+    if (error || !contract) {
+
+        return interaction.reply({
+            content:
+                "❌ Este contrato não foi encontrado.",
+            ephemeral: true
+        });
+    }
+
+    // ----------------------------------------------
+    // VERIFICAR JOGADOR
+    // ----------------------------------------------
 
     if (
         interaction.user.id !==
-        playerId
+        contract.player_id
     ) {
 
         return interaction.reply({
@@ -792,170 +1398,157 @@ async function processarBotaoContrato(interaction) {
         });
     }
 
+    // ----------------------------------------------
+    // VERIFICAR STATUS
+    // ----------------------------------------------
+
+    if (
+        contract.status !==
+        "pending"
+    ) {
+
+        return interaction.reply({
+            content:
+                "❌ Este contrato já foi respondido.",
+            ephemeral: true
+        });
+    }
+
+    const newStatus =
+        accepted
+            ? "accepted"
+            : "declined";
+
+    // ----------------------------------------------
+    // ATUALIZAR
+    // ----------------------------------------------
+
+    const {
+        error: updateError
+    } = await supabase
+        .from("contracts")
+        .update({
+            status: newStatus
+        })
+        .eq(
+            "id",
+            contractId
+        );
+
+    if (updateError) {
+
+        console.error(
+            "❌ Erro ao atualizar contrato:",
+            updateError
+        );
+
+        return interaction.reply({
+            content:
+                "❌ Não foi possível atualizar o contrato.",
+            ephemeral: true
+        });
+    }
+
+    // ----------------------------------------------
+    // BUSCAR DADOS
+    // ----------------------------------------------
+
+    const manager =
+        await interaction.client.users
+            .fetch(
+                contract.manager_id
+            )
+            .catch(() => null);
+
+    const player =
+        await interaction.client.users
+            .fetch(
+                contract.player_id
+            )
+            .catch(() => null);
+
     const guild =
         interaction.guild;
 
-    if (!guild) {
+    const teamRole =
+        guild
+            ? guild.roles.cache.get(
+                contract.team_role_id
+            )
+            : null;
 
-        return interaction.reply({
-            content:
-                "❌ Este contrato precisa ser processado dentro do servidor.",
-            ephemeral: true
-        });
-    }
+    // ----------------------------------------------
+    // CONTAINER ATUALIZADO
+    // ----------------------------------------------
 
-    const team =
-        getTeamByRoleId(teamRoleId);
+    const container =
+        criarContratoContainer({
+            manager:
+                manager ||
+                `<@${contract.manager_id}>`,
 
-    if (!team) {
+            player:
+                player ||
+                `<@${contract.player_id}>`,
 
-        return interaction.reply({
-            content:
-                "❌ O time deste contrato não foi encontrado.",
-            ephemeral: true
-        });
-    }
+            teamRole:
+                teamRole ||
+                `<@&${contract.team_role_id}>`,
 
-    const member =
-        await guild.members
-            .fetch(playerId)
-            .catch(() => null);
+            position:
+                contract.position,
 
-    if (!member) {
+            funcao:
+                contract.function,
 
-        return interaction.reply({
-            content:
-                "❌ Não foi possível encontrar o jogador no servidor.",
-            ephemeral: true
-        });
-    }
+            contractId:
+                contract.id,
 
-    // ==============================================
-    // RECUSAR
-    // ==============================================
-
-    if (isDecline) {
-
-        await interaction.update({
-            components: [
-                new ContainerBuilder()
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(
-                            "## ❌ CONTRATO RECUSADO\n\n" +
-                            `**Jogador:** <@${playerId}>\n` +
-                            `**Time:** ${team.name}\n\n` +
-                            "O jogador recusou este contrato.\n\n" +
-                            "-# VTL - CONTRACT SYSTEM"
-                        )
-                    )
-            ],
-            flags: MessageFlags.IsComponentsV2
+            status:
+                newStatus
         });
 
-        const logChannel =
-            guild.channels.cache.get(
-                CONTRACT_LOG_CHANNEL_ID
-            );
-
-        if (logChannel) {
-
-            await logChannel.send({
-                content:
-                    `❌ **Contrato recusado**\n\n` +
-                    `**Jogador:** <@${playerId}>\n` +
-                    `**Manager:** <@${managerId}>\n` +
-                    `**Time:** ${team.name}`
-            }).catch(() => {});
-        }
-
-        return true;
-    }
-
-    // ==============================================
-    // ACEITAR
-    // ==============================================
-
-    try {
-
-        await member.roles.add(
-            team.roleId
-        );
-
-    } catch (error) {
-
-        console.error(
-            "❌ Erro ao adicionar cargo:",
-            error
-        );
-
-        return interaction.reply({
-            content:
-                "❌ Não foi possível adicionar o cargo do time. Verifique a hierarquia de cargos do bot.",
-            ephemeral: true
-        });
-    }
+    // ----------------------------------------------
+    // ATUALIZAR MENSAGEM
+    // ----------------------------------------------
 
     await interaction.update({
-        components: [
-            new ContainerBuilder()
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        "## ✅ CONTRATO ACEITO\n\n" +
-                        `**Jogador:** <@${playerId}>\n` +
-                        `**Time:** ${team.name}\n\n` +
-                        "O jogador aceitou o contrato.\n\n" +
-                        "-# VTL - CONTRACT SYSTEM"
-                    )
-                )
-        ],
-        flags: MessageFlags.IsComponentsV2
+        components: [container],
+        flags: 1 << 15
     });
 
-    const logChannel =
-        guild.channels.cache.get(
-            CONTRACT_LOG_CHANNEL_ID
+    // ----------------------------------------------
+    // LOG
+    // ----------------------------------------------
+
+    if (
+        guild &&
+        manager &&
+        player &&
+        teamRole
+    ) {
+
+        await registrarContrato({
+            interaction,
+            manager,
+            player,
+            teamRole,
+            position:
+                contract.position,
+            funcao:
+                contract.function,
+            status:
+                newStatus
+        });
+
+    } else {
+
+        console.error(
+            "❌ Não foi possível registrar o contrato nos logs porque faltam dados."
         );
-
-    if (logChannel) {
-
-        await logChannel.send({
-            content:
-                `✅ **Contrato aceito**\n\n` +
-                `**Jogador:** <@${playerId}>\n` +
-                `**Manager:** <@${managerId}>\n` +
-                `**Time:** ${team.name}`
-        }).catch(() => {});
     }
 
     return true;
-}
-
-// ======================================================
-// EXECUTAR COMANDOS
-// ======================================================
-
-async function executarComando(interaction) {
-
-    switch (interaction.commandName) {
-
-        case "perm":
-            return executarPerm(interaction);
-
-        case "unperm":
-            return executarUnperm(interaction);
-
-        case "permlist":
-            return executarPermlist(interaction);
-
-        case "contract":
-            return executarContract(interaction);
-
-        case "release":
-            return executarRelease(interaction);
-
-        default:
-            return false;
-    }
 }
 
 // ======================================================
@@ -963,6 +1556,7 @@ async function executarComando(interaction) {
 // ======================================================
 
 module.exports = {
+    criarTimeCommand,
     permCommand,
     unpermCommand,
     permlistCommand,

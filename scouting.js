@@ -192,16 +192,20 @@ async function processarScouting(
     );
 
     // ==================================================
-    // ENVIAR
+    // ENVIAR UMA ÚNICA MENSAGEM
     // ==================================================
 
     await canal.send({
 
-        // @usuário fica FORA do container
-        content:
-            `${interaction.user}`,
-
         components: [
+
+            // @USUÁRIO FORA DO CONTAINER
+            new TextDisplayBuilder()
+                .setContent(
+                    `${interaction.user}`
+                ),
+
+            // CONTAINER
             container
         ],
 

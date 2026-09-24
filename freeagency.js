@@ -192,12 +192,10 @@ async function handleFreeAgencyInteraction(interaction) {
 // EXPORTS
 // ======================================================
 
+freeagencyCommand.execute = executarFreeAgency;
+
 module.exports = {
-    freeagencyCommand: {
-        ...freeagencyCommand,
-
-        execute: executarFreeAgency
-    },
-
+    freeagencyCommand,
     handleFreeAgencyInteraction
 };
+

@@ -20,6 +20,8 @@ const {
     contractCommand,
     releaseCommand,
     criarTimeCommand,
+    excluirTimeCommand,
+    autoreleaseCommand,
     executarComando,
     processarBotaoContrato
 } = require("./contract");
@@ -48,12 +50,17 @@ const client = new Client({
 const commands = [
     ticketCommand,
     freeagencyCommand,
+
+    // CONTRATOS / TIMES
     permCommand,
     unpermCommand,
     permlistCommand,
     contractCommand,
     releaseCommand,
-    criarTimeCommand
+    criarTimeCommand,
+    excluirTimeCommand,
+    autoreleaseCommand
+
 ].map(command => command.toJSON());
 
 // ======================================================
@@ -70,6 +77,7 @@ const server = http.createServer((req, res) => {
     });
 
     res.end("VTL Bot online!");
+
 });
 
 server.listen(PORT, () => {
@@ -117,41 +125,45 @@ async function registrarComandos() {
         );
 
     }
+
 }
 
 // ======================================================
 // BOT PRONTO
 // ======================================================
 
-client.once("clientReady", async () => {
+client.once(
+    "clientReady",
+    async () => {
 
-    console.log(
-        "================================="
-    );
+        console.log(
+            "================================="
+        );
 
-    console.log(
-        "🟢 VTL BOT ONLINE"
-    );
+        console.log(
+            "🟢 VTL BOT ONLINE"
+        );
 
-    console.log(
-        `🤖 Bot: ${client.user.tag}`
-    );
+        console.log(
+            `🤖 Bot: ${client.user.tag}`
+        );
 
-    console.log(
-        `🆔 ID: ${client.user.id}`
-    );
+        console.log(
+            `🆔 ID: ${client.user.id}`
+        );
 
-    console.log(
-        `🏠 Servidores: ${client.guilds.cache.size}`
-    );
+        console.log(
+            `🏠 Servidores: ${client.guilds.cache.size}`
+        );
 
-    console.log(
-        "================================="
-    );
+        console.log(
+            "================================="
+        );
 
-    await registrarComandos();
+        await registrarComandos();
 
-});
+    }
+);
 
 // ======================================================
 // INTERAÇÕES
@@ -181,27 +193,6 @@ client.on(
             }
 
             // ==========================================
-            // INTERAÇÕES DO TICKET
-            // ==========================================
-
-            if (
-                interaction.isStringSelectMenu() ||
-                interaction.isButton() ||
-                interaction.isModalSubmit()
-            ) {
-
-                const processado =
-                    await handleTicketInteraction(
-                        interaction
-                    );
-
-                if (processado) {
-                    return;
-                }
-
-            }
-
-            // ==========================================
             // FREE AGENCY
             // ==========================================
 
@@ -213,6 +204,27 @@ client.on(
 
                 const processado =
                     await processarFreeAgency(
+                        interaction
+                    );
+
+                if (processado) {
+                    return;
+                }
+
+            }
+
+            // ==========================================
+            // INTERAÇÕES DO TICKET
+            // ==========================================
+
+            if (
+                interaction.isStringSelectMenu() ||
+                interaction.isButton() ||
+                interaction.isModalSubmit()
+            ) {
+
+                const processado =
+                    await handleTicketInteraction(
                         interaction
                     );
 
@@ -263,7 +275,7 @@ client.on(
                 }
 
                 // --------------------------------------
-                // CONTRATOS
+                // CONTRATOS / TIMES
                 // --------------------------------------
 
                 if (
@@ -283,7 +295,13 @@ client.on(
                         "release" ||
 
                     interaction.commandName ===
-                        "criartime"
+                        "criartime" ||
+
+                    interaction.commandName ===
+                        "excluirtime" ||
+
+                    interaction.commandName ===
+                        "autorelease"
                 ) {
 
                     return await

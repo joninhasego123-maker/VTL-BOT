@@ -220,7 +220,7 @@ async function processarScouting(
 
     return interaction.reply({
         content:
-            `✅ Seu jogador foi enviado para o Scouting em <#${SCOUTING_CHANNEL_ID}>.`,
+            `✅ Seu scouting foi enviado para <#${SCOUTING_CHANNEL_ID}>.`,
 
         flags:
             MessageFlags.Ephemeral

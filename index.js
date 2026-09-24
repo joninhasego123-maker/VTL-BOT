@@ -19,12 +19,14 @@ const {
     permlistCommand,
     contractCommand,
     releaseCommand,
+    criarTimeCommand,
     executarComando,
     processarBotaoContrato
 } = require("./contract");
 
 const {
-    freeagencyCommand
+    freeagencyCommand,
+    processarFreeAgency
 } = require("./freeagency");
 
 // ======================================================
@@ -50,7 +52,8 @@ const commands = [
     unpermCommand,
     permlistCommand,
     contractCommand,
-    releaseCommand
+    releaseCommand,
+    criarTimeCommand
 ].map(command => command.toJSON());
 
 // ======================================================
@@ -70,7 +73,11 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`🌐 Servidor HTTP online na porta ${PORT}`);
+
+    console.log(
+        `🌐 Servidor HTTP online na porta ${PORT}`
+    );
+
 });
 
 // ======================================================
@@ -85,10 +92,14 @@ async function registrarComandos() {
             version: "10"
         }).setToken(config.TOKEN);
 
-        console.log("🔄 Registrando comandos...");
+        console.log(
+            "🔄 Registrando comandos..."
+        );
 
         await rest.put(
-            Routes.applicationCommands(client.user.id),
+            Routes.applicationCommands(
+                client.user.id
+            ),
             {
                 body: commands
             }
@@ -104,6 +115,7 @@ async function registrarComandos() {
             "❌ Erro ao registrar comandos:",
             error
         );
+
     }
 }
 
@@ -113,202 +125,322 @@ async function registrarComandos() {
 
 client.once("clientReady", async () => {
 
-    console.log("=================================");
-    console.log("🟢 VTL BOT ONLINE");
-    console.log(`🤖 Bot: ${client.user.tag}`);
-    console.log(`🆔 ID: ${client.user.id}`);
-    console.log(`🏠 Servidores: ${client.guilds.cache.size}`);
-    console.log("=================================");
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "🟢 VTL BOT ONLINE"
+    );
+
+    console.log(
+        `🤖 Bot: ${client.user.tag}`
+    );
+
+    console.log(
+        `🆔 ID: ${client.user.id}`
+    );
+
+    console.log(
+        `🏠 Servidores: ${client.guilds.cache.size}`
+    );
+
+    console.log(
+        "================================="
+    );
 
     await registrarComandos();
+
 });
 
 // ======================================================
 // INTERAÇÕES
 // ======================================================
 
-client.on("interactionCreate", async interaction => {
-
-    try {
-
-        // ==============================================
-        // BOTÕES DE CONTRATO
-        // ==============================================
-
-        if (interaction.isButton()) {
-
-            const processado =
-                await processarBotaoContrato(interaction);
-
-            if (processado) {
-                return;
-            }
-        }
-
-        // ==============================================
-        // INTERAÇÕES DO TICKET
-        // ==============================================
-
-        if (
-            interaction.isStringSelectMenu() ||
-            interaction.isButton() ||
-            interaction.isModalSubmit()
-        ) {
-
-            const processado =
-                await handleTicketInteraction(interaction);
-
-            if (processado) {
-                return;
-            }
-        }
-
-        // ==============================================
-        // SLASH COMMANDS
-        // ==============================================
-
-        if (interaction.isChatInputCommand()) {
-
-            // ------------------------------
-            // TICKET
-            // ------------------------------
-
-            if (interaction.commandName === "ticket") {
-
-                return await ticketCommand.execute(
-                    interaction
-                );
-            }
-
-            // ------------------------------
-            // FREE AGENCY
-            // ------------------------------
-
-            if (interaction.commandName === "freeagency") {
-
-                return await freeagencyCommand.execute(
-                    interaction
-                );
-            }
-
-            // ------------------------------
-            // CONTRATOS
-            // ------------------------------
-
-            if (
-                interaction.commandName === "perm" ||
-                interaction.commandName === "unperm" ||
-                interaction.commandName === "permlist" ||
-                interaction.commandName === "contract" ||
-                interaction.commandName === "release"
-            ) {
-
-                return await executarComando(
-                    interaction
-                );
-            }
-        }
-
-    } catch (error) {
-
-        console.error(
-            "❌ Ocorreu um erro ao processar esta interação:",
-            error
-        );
+client.on(
+    "interactionCreate",
+    async interaction => {
 
         try {
 
-            if (interaction.replied || interaction.deferred) {
+            // ==========================================
+            // BOTÕES DE CONTRATO
+            // ==========================================
 
-                await interaction.followUp({
-                    content:
-                        "❌ Ocorreu um erro ao processar esta interação.",
-                    ephemeral: true
-                });
+            if (interaction.isButton()) {
 
-            } else {
+                const processado =
+                    await processarBotaoContrato(
+                        interaction
+                    );
 
-                await interaction.reply({
-                    content:
-                        "❌ Ocorreu um erro ao processar esta interação.",
-                    ephemeral: true
-                });
+                if (processado) {
+                    return;
+                }
+
             }
 
-        } catch (replyError) {
+            // ==========================================
+            // INTERAÇÕES DO TICKET
+            // ==========================================
+
+            if (
+                interaction.isStringSelectMenu() ||
+                interaction.isButton() ||
+                interaction.isModalSubmit()
+            ) {
+
+                const processado =
+                    await handleTicketInteraction(
+                        interaction
+                    );
+
+                if (processado) {
+                    return;
+                }
+
+            }
+
+            // ==========================================
+            // FREE AGENCY
+            // ==========================================
+
+            if (
+                interaction.isModalSubmit() &&
+                interaction.customId ===
+                    "modal_freeagency"
+            ) {
+
+                const processado =
+                    await processarFreeAgency(
+                        interaction
+                    );
+
+                if (processado) {
+                    return;
+                }
+
+            }
+
+            // ==========================================
+            // SLASH COMMANDS
+            // ==========================================
+
+            if (
+                interaction.isChatInputCommand()
+            ) {
+
+                // --------------------------------------
+                // TICKET
+                // --------------------------------------
+
+                if (
+                    interaction.commandName ===
+                    "ticket"
+                ) {
+
+                    return await
+                        ticketCommand.execute(
+                            interaction
+                        );
+
+                }
+
+                // --------------------------------------
+                // FREE AGENCY
+                // --------------------------------------
+
+                if (
+                    interaction.commandName ===
+                    "freeagency"
+                ) {
+
+                    return await
+                        freeagencyCommand.execute(
+                            interaction
+                        );
+
+                }
+
+                // --------------------------------------
+                // CONTRATOS
+                // --------------------------------------
+
+                if (
+                    interaction.commandName ===
+                        "perm" ||
+
+                    interaction.commandName ===
+                        "unperm" ||
+
+                    interaction.commandName ===
+                        "permlist" ||
+
+                    interaction.commandName ===
+                        "contract" ||
+
+                    interaction.commandName ===
+                        "release" ||
+
+                    interaction.commandName ===
+                        "criartime"
+                ) {
+
+                    return await
+                        executarComando(
+                            interaction
+                        );
+
+                }
+
+            }
+
+        } catch (error) {
 
             console.error(
-                "❌ Não foi possível enviar a mensagem de erro:",
-                replyError
+                "❌ Ocorreu um erro ao processar esta interação:",
+                error
             );
+
+            try {
+
+                if (
+                    interaction.replied ||
+                    interaction.deferred
+                ) {
+
+                    await interaction.followUp({
+
+                        content:
+                            "❌ Ocorreu um erro ao processar esta interação.",
+
+                        ephemeral: true
+
+                    });
+
+                } else {
+
+                    await interaction.reply({
+
+                        content:
+                            "❌ Ocorreu um erro ao processar esta interação.",
+
+                        ephemeral: true
+
+                    });
+
+                }
+
+            } catch (replyError) {
+
+                console.error(
+                    "❌ Não foi possível enviar a mensagem de erro:",
+                    replyError
+                );
+
+            }
+
         }
+
     }
-});
+);
 
 // ======================================================
 // EVENTOS DE CONEXÃO DO DISCORD
 // ======================================================
 
-client.on("shardReady", shardId => {
+client.on(
+    "shardReady",
+    shardId => {
 
-    console.log(
-        `🟢 SHARD ${shardId} conectado.`
-    );
-});
+        console.log(
+            `🟢 SHARD ${shardId} conectado.`
+        );
 
-client.on("shardDisconnect", (event, shardId) => {
+    }
+);
 
-    console.error(
-        `🔴 SHARD ${shardId} desconectou. Código: ${event.code}`
-    );
-});
+client.on(
+    "shardDisconnect",
+    (event, shardId) => {
 
-client.on("shardReconnecting", shardId => {
+        console.error(
+            `🔴 SHARD ${shardId} desconectou. Código: ${event.code}`
+        );
 
-    console.log(
-        `🟡 SHARD ${shardId} tentando reconectar...`
-    );
-});
+    }
+);
 
-client.on("shardResume", (shardId, replayedEvents) => {
+client.on(
+    "shardReconnecting",
+    shardId => {
 
-    console.log(
-        `🟢 SHARD ${shardId} reconectado. ` +
-        `Eventos recuperados: ${replayedEvents}`
-    );
-});
+        console.log(
+            `🟡 SHARD ${shardId} tentando reconectar...`
+        );
 
-client.on("shardError", (error, shardId) => {
+    }
+);
 
-    console.error(
-        `❌ Erro no SHARD ${shardId}:`,
-        error
-    );
-});
+client.on(
+    "shardResume",
+    (shardId, replayedEvents) => {
 
-client.on("error", error => {
+        console.log(
+            `🟢 SHARD ${shardId} reconectado. ` +
+            `Eventos recuperados: ${replayedEvents}`
+        );
 
-    console.error(
-        "❌ Erro do cliente Discord:",
-        error
-    );
-});
+    }
+);
 
-client.on("warn", warning => {
+client.on(
+    "shardError",
+    (error, shardId) => {
 
-    console.warn(
-        "⚠️ Discord.js:",
-        warning
-    );
-});
+        console.error(
+            `❌ Erro no SHARD ${shardId}:`,
+            error
+        );
+
+    }
+);
+
+client.on(
+    "error",
+    error => {
+
+        console.error(
+            "❌ Erro do cliente Discord:",
+            error
+        );
+
+    }
+);
+
+client.on(
+    "warn",
+    warning => {
+
+        console.warn(
+            "⚠️ Discord.js:",
+            warning
+        );
+
+    }
+);
 
 // ======================================================
 // LOGIN
 // ======================================================
 
-console.log("🔑 Conectando ao Discord...");
+console.log(
+    "🔑 Conectando ao Discord..."
+);
 
-client.login(config.TOKEN)
+client.login(
+    config.TOKEN
+)
     .then(() => {
 
         console.log(

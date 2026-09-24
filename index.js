@@ -31,6 +31,11 @@ const {
     processarFreeAgency
 } = require("./freeagency");
 
+const {
+    scoutingCommand,
+    processarScouting
+} = require("./scouting");
+
 // ======================================================
 // CLIENT
 // ======================================================
@@ -49,7 +54,12 @@ const client = new Client({
 
 const commands = [
     ticketCommand,
+
+    // FREE AGENCY
     freeagencyCommand,
+
+    // SCOUTING
+    scoutingCommand,
 
     // CONTRATOS / TIMES
     permCommand,
@@ -214,6 +224,27 @@ client.on(
             }
 
             // ==========================================
+            // SCOUTING
+            // ==========================================
+
+            if (
+                interaction.isModalSubmit() &&
+                interaction.customId ===
+                    "modal_scouting"
+            ) {
+
+                const processado =
+                    await processarScouting(
+                        interaction
+                    );
+
+                if (processado) {
+                    return;
+                }
+
+            }
+
+            // ==========================================
             // INTERAÇÕES DO TICKET
             // ==========================================
 
@@ -269,6 +300,22 @@ client.on(
 
                     return await
                         freeagencyCommand.execute(
+                            interaction
+                        );
+
+                }
+
+                // --------------------------------------
+                // SCOUTING
+                // --------------------------------------
+
+                if (
+                    interaction.commandName ===
+                    "scouting"
+                ) {
+
+                    return await
+                        scoutingCommand.execute(
                             interaction
                         );
 

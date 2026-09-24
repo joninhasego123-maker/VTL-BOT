@@ -154,7 +154,7 @@ async function processarScouting(
             .addTextDisplayComponents(
                 new TextDisplayBuilder()
                     .setContent(
-                        `**Jogador:** ${interaction.user}\n` +
+                        `${interaction.user}\n` +
                         `**ID:** \`${interaction.user.id}\``
                     )
             )

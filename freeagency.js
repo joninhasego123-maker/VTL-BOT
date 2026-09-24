@@ -119,6 +119,7 @@ async function processarFreeAgency(
         return interaction.reply({
             content:
                 "❌ O canal de Free Agency não foi encontrado.",
+
             flags:
                 MessageFlags.Ephemeral
         });
@@ -175,13 +176,12 @@ async function processarFreeAgency(
     );
 
     // ==================================================
-    // DESCRIÇÃO
+    // BLOCO DA DESCRIÇÃO
     // ==================================================
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
             .setContent(
-                "**Descrição:**\n\n" +
                 "```text\n" +
                 descricao +
                 "\n```"
@@ -211,6 +211,7 @@ async function processarFreeAgency(
         components: [
             container
         ],
+
         flags:
             MessageFlags.IsComponentsV2
     });
@@ -222,6 +223,7 @@ async function processarFreeAgency(
     return interaction.reply({
         content:
             `✅ Seu jogador foi enviado para a Free Agency em <#${FREEAGENCY_CHANNEL_ID}>.`,
+
         flags:
             MessageFlags.Ephemeral
     });

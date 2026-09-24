@@ -141,16 +141,12 @@ async function processarScouting(
             )
     );
 
-    // ==================================================
-    // SEPARADOR
-    // ==================================================
-
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
     // ==================================================
-    // DESCRIÇÃO + AVATAR
+    // JOGADOR
     // ==================================================
 
     container.addSectionComponents(
@@ -158,7 +154,8 @@ async function processarScouting(
             .addTextDisplayComponents(
                 new TextDisplayBuilder()
                     .setContent(
-                        descricao
+                        `${interaction.user}\n` +
+                        `**ID:** \`${interaction.user.id}\``
                     )
             )
             .setThumbnailAccessory(
@@ -172,9 +169,22 @@ async function processarScouting(
             )
     );
 
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
     // ==================================================
-    // SEPARADOR FINAL
+    // BLOCO
     // ==================================================
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "```text\n" +
+                descricao +
+                "\n```"
+            )
+    );
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
@@ -192,20 +202,11 @@ async function processarScouting(
     );
 
     // ==================================================
-    // ENVIAR UMA ÚNICA MENSAGEM
+    // ENVIAR
     // ==================================================
 
     await canal.send({
-
         components: [
-
-            // @USUÁRIO FORA DO CONTAINER
-            new TextDisplayBuilder()
-                .setContent(
-                    `${interaction.user}`
-                ),
-
-            // CONTAINER
             container
         ],
 

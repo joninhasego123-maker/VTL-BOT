@@ -141,12 +141,16 @@ async function processarScouting(
             )
     );
 
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
+
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
     // ==================================================
-    // JOGADOR
+    // DESCRIÇÃO + AVATAR
     // ==================================================
 
     container.addSectionComponents(
@@ -154,8 +158,7 @@ async function processarScouting(
             .addTextDisplayComponents(
                 new TextDisplayBuilder()
                     .setContent(
-                        `${interaction.user}\n` +
-                        `**ID:** \`${interaction.user.id}\``
+                        descricao
                     )
             )
             .setThumbnailAccessory(
@@ -169,22 +172,9 @@ async function processarScouting(
             )
     );
 
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
     // ==================================================
-    // BLOCO
+    // SEPARADOR FINAL
     // ==================================================
-
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder()
-            .setContent(
-                "```text\n" +
-                descricao +
-                "\n```"
-            )
-    );
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
@@ -206,6 +196,11 @@ async function processarScouting(
     // ==================================================
 
     await canal.send({
+
+        // @usuário fica FORA do container
+        content:
+            `${interaction.user}`,
+
         components: [
             container
         ],
@@ -220,7 +215,7 @@ async function processarScouting(
 
     return interaction.reply({
         content:
-            `✅ Seu scouting foi enviado para  <#${SCOUTING_CHANNEL_ID}>.`,
+            `✅ Seu jogador foi enviado para o Scouting em <#${SCOUTING_CHANNEL_ID}>.`,
 
         flags:
             MessageFlags.Ephemeral

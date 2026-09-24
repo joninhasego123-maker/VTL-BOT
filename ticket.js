@@ -11,6 +11,7 @@ const {
     ThumbnailBuilder,
     MediaGalleryBuilder,
     MediaGalleryItemBuilder,
+    StringSelectMenuBuilder,
     ButtonBuilder,
     ButtonStyle,
     MessageFlags
@@ -33,7 +34,7 @@ const TICKET_PANEL_CHANNEL_ID =
     config.TICKET_PANEL_CHANNEL_ID;
 
 // ======================================================
-// IDS DOS TIPOS DE TICKET
+// TIPOS DE TICKET
 // ======================================================
 
 const TICKET_OWNAR =
@@ -51,6 +52,9 @@ const TICKET_OUTROS =
 const CLOSE_TICKET =
     "fechar_ticket";
 
+const TICKET_SELECT =
+    "ticket_tipo_select";
+
 // ======================================================
 // COMANDO /TICKET
 // ======================================================
@@ -58,11 +62,13 @@ const CLOSE_TICKET =
 const ticketCommand =
     new SlashCommandBuilder()
         .setName("ticket")
-        .setDescription("Envia o painel de atendimento de tickets.")
+        .setDescription(
+            "Envia o painel de atendimento de tickets."
+        )
         .setDefaultMemberPermissions("8");
 
 // ======================================================
-// PAINEL DE TICKETS
+// PAINEL
 // ======================================================
 
 function criarPainelTicket() {
@@ -70,9 +76,9 @@ function criarPainelTicket() {
     const container =
         new ContainerBuilder();
 
-    // ==============================================
+    // ==================================================
     // IMAGEM DO TOPO
-    // ==============================================
+    // ==================================================
 
     const topoPath =
         path.join(
@@ -91,9 +97,9 @@ function criarPainelTicket() {
             )
     );
 
-    // ==============================================
+    // ==================================================
     // TÍTULO + LOGO
-    // ==============================================
+    // ==================================================
 
     const logoPath =
         path.join(
@@ -123,60 +129,93 @@ function criarPainelTicket() {
         new SeparatorBuilder()
     );
 
-    // ==============================================
-    // BOTÕES
-    // ==============================================
+    // ==================================================
+    // EXPLICAÇÃO DAS OPÇÕES
+    // ==================================================
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "**⚽ Ownar**\n" +
+                "Solicite um time ou seleção para administrar.\n\n" +
+
+                "**🤝 Parceria**\n" +
+                "Envie uma proposta de parceria para a VTL.\n\n" +
+
+                "**🚨 Denúncia**\n" +
+                "Realize uma denúncia e envie as provas necessárias.\n\n" +
+
+                "**📩 Outros**\n" +
+                "Use para assuntos que não se encaixam nas opções acima."
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    // ==================================================
+    // MENU DE SELEÇÃO
+    // ==================================================
+
+    const menu =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                TICKET_SELECT
+            )
+            .setPlaceholder(
+                "Selecione o tipo de atendimento..."
+            )
+            .addOptions(
+
+                {
+                    label: "Ownar",
+                    description:
+                        "Solicitar um time ou seleção.",
+                    value:
+                        TICKET_OWNAR,
+                    emoji: "⚽"
+                },
+
+                {
+                    label: "Parceria",
+                    description:
+                        "Enviar uma proposta de parceria.",
+                    value:
+                        TICKET_PARCERIA,
+                    emoji: "🤝"
+                },
+
+                {
+                    label: "Denúncia",
+                    description:
+                        "Realizar uma denúncia com provas.",
+                    value:
+                        TICKET_DENUNCIA,
+                    emoji: "🚨"
+                },
+
+                {
+                    label: "Outros",
+                    description:
+                        "Assuntos que não se encaixam nas opções.",
+                    value:
+                        TICKET_OUTROS,
+                    emoji: "📩"
+                }
+
+            );
 
     container.addActionRowComponents(
         new ActionRowBuilder()
             .addComponents(
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        TICKET_OWNAR
-                    )
-                    .setLabel("Ownar")
-                    .setEmoji("⚽")
-                    .setStyle(
-                        ButtonStyle.Primary
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        TICKET_PARCERIA
-                    )
-                    .setLabel("Parceria")
-                    .setEmoji("🤝")
-                    .setStyle(
-                        ButtonStyle.Primary
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        TICKET_DENUNCIA
-                    )
-                    .setLabel("Denúncia")
-                    .setEmoji("🚨")
-                    .setStyle(
-                        ButtonStyle.Danger
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        TICKET_OUTROS
-                    )
-                    .setLabel("Outros")
-                    .setEmoji("📩")
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
-
+                menu
             )
     );
 
-    // ==============================================
+    // ==================================================
     // FOOTER
-    // ==============================================
+    // ==================================================
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
@@ -186,18 +225,23 @@ function criarPainelTicket() {
     );
 
     return {
+
         container,
 
         files: [
+
             {
                 attachment: topoPath,
                 name: "ticket_topo.png"
             },
+
             {
                 attachment: logoPath,
                 name: "utl_logo.png"
             }
+
         ]
+
     };
 }
 
@@ -214,16 +258,16 @@ function criarTicketContainer({
     const container =
         new ContainerBuilder();
 
-    // ==============================================
-    // IMAGEM
-    // ==============================================
-
     const ticketImagePath =
         path.join(
             __dirname,
             "imagens",
             "ticket_aberto_v2.png"
         );
+
+    // ==================================================
+    // IMAGEM
+    // ==================================================
 
     container.addMediaGalleryComponents(
         new MediaGalleryBuilder()
@@ -235,9 +279,9 @@ function criarTicketContainer({
             )
     );
 
-    // ==============================================
+    // ==================================================
     // INFORMAÇÕES
-    // ==============================================
+    // ==================================================
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
@@ -253,9 +297,9 @@ function criarTicketContainer({
         new SeparatorBuilder()
     );
 
-    // ==============================================
+    // ==================================================
     // ATENDIMENTO
-    // ==============================================
+    // ==================================================
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
@@ -269,9 +313,9 @@ function criarTicketContainer({
         new SeparatorBuilder()
     );
 
-    // ==============================================
-    // BOTÃO FECHAR
-    // ==============================================
+    // ==================================================
+    // FECHAR
+    // ==================================================
 
     container.addActionRowComponents(
         new ActionRowBuilder()
@@ -281,7 +325,9 @@ function criarTicketContainer({
                     .setCustomId(
                         CLOSE_TICKET
                     )
-                    .setLabel("Fechar Ticket")
+                    .setLabel(
+                        "Fechar Ticket"
+                    )
                     .setEmoji("🔒")
                     .setStyle(
                         ButtonStyle.Danger
@@ -298,19 +344,25 @@ function criarTicketContainer({
     );
 
     return {
+
         container,
 
         files: [
+
             {
-                attachment: ticketImagePath,
-                name: "ticket_aberto_v2.png"
+                attachment:
+                    ticketImagePath,
+                name:
+                    "ticket_aberto_v2.png"
             }
+
         ]
+
     };
 }
 
 // ======================================================
-// CRIAR CANAL DO TICKET
+// CRIAR CANAL
 // ======================================================
 
 async function criarCanalTicket(
@@ -327,13 +379,14 @@ async function criarCanalTicket(
         return interaction.reply({
             content:
                 "❌ Este sistema só pode ser usado dentro do servidor.",
-            flags: MessageFlags.Ephemeral
+            flags:
+                MessageFlags.Ephemeral
         });
     }
 
-    // ==============================================
+    // ==================================================
     // VERIFICAR TICKET EXISTENTE
-    // ==============================================
+    // ==================================================
 
     const ticketExistente =
         guild.channels.cache.find(
@@ -349,13 +402,14 @@ async function criarCanalTicket(
         return interaction.reply({
             content:
                 `❌ Você já possui um ticket aberto: ${ticketExistente}`,
-            flags: MessageFlags.Ephemeral
+            flags:
+                MessageFlags.Ephemeral
         });
     }
 
-    // ==============================================
+    // ==================================================
     // CRIAR CANAL
-    // ==============================================
+    // ==================================================
 
     const channel =
         await guild.channels.create({
@@ -388,7 +442,8 @@ async function criarCanalTicket(
                 },
 
                 {
-                    id: interaction.user.id,
+                    id:
+                        interaction.user.id,
 
                     allow: [
                         "ViewChannel",
@@ -399,7 +454,8 @@ async function criarCanalTicket(
                 },
 
                 {
-                    id: STAFF_ROLE_ID,
+                    id:
+                        STAFF_ROLE_ID,
 
                     allow: [
                         "ViewChannel",
@@ -412,20 +468,21 @@ async function criarCanalTicket(
             ]
         });
 
-    // ==============================================
+    // ==================================================
     // CONTAINER
-    // ==============================================
+    // ==================================================
 
     const ticket =
         criarTicketContainer({
-            user: interaction.user,
-            tipo,
-            conteudo
-        });
 
-    // ==============================================
-    // ENVIAR TICKET
-    // ==============================================
+            user:
+                interaction.user,
+
+            tipo,
+
+            conteudo
+
+        });
 
     await channel.send({
 
@@ -441,16 +498,14 @@ async function criarCanalTicket(
 
     });
 
-    // ==============================================
-    // RESPOSTA
-    // ==============================================
-
     return interaction.reply({
+
         content:
             `✅ Seu ticket foi criado: ${channel}`,
 
         flags:
             MessageFlags.Ephemeral
+
     });
 }
 
@@ -467,11 +522,15 @@ function abrirModalOwnar(
             .setCustomId(
                 "modal_ticket_ownar"
             )
-            .setTitle("Ownar");
+            .setTitle(
+                "Ownar"
+            );
 
     const timeInput =
         new TextInputBuilder()
-            .setCustomId("time")
+            .setCustomId(
+                "time"
+            )
             .setLabel(
                 "Qual time ou seleção você quer ownar?"
             )
@@ -612,18 +671,25 @@ async function handleTicketInteraction(
     interaction
 ) {
 
-    // ==============================================
-    // BOTÕES
-    // ==============================================
+    // ==================================================
+    // MENU DE SELEÇÃO
+    // ==================================================
 
-    if (interaction.isButton()) {
+    if (
+        interaction.isStringSelectMenu() &&
+        interaction.customId ===
+            TICKET_SELECT
+    ) {
 
-        // ------------------------------------------
+        const escolha =
+            interaction.values[0];
+
+        // ----------------------------------------------
         // OWNAR
-        // ------------------------------------------
+        // ----------------------------------------------
 
         if (
-            interaction.customId ===
+            escolha ===
             TICKET_OWNAR
         ) {
 
@@ -632,12 +698,12 @@ async function handleTicketInteraction(
             );
         }
 
-        // ------------------------------------------
+        // ----------------------------------------------
         // PARCERIA
-        // ------------------------------------------
+        // ----------------------------------------------
 
         if (
-            interaction.customId ===
+            escolha ===
             TICKET_PARCERIA
         ) {
 
@@ -646,12 +712,12 @@ async function handleTicketInteraction(
             );
         }
 
-        // ------------------------------------------
+        // ----------------------------------------------
         // DENÚNCIA
-        // ------------------------------------------
+        // ----------------------------------------------
 
         if (
-            interaction.customId ===
+            escolha ===
             TICKET_DENUNCIA
         ) {
 
@@ -666,12 +732,12 @@ async function handleTicketInteraction(
             );
         }
 
-        // ------------------------------------------
+        // ----------------------------------------------
         // OUTROS
-        // ------------------------------------------
+        // ----------------------------------------------
 
         if (
-            interaction.customId ===
+            escolha ===
             TICKET_OUTROS
         ) {
 
@@ -680,66 +746,71 @@ async function handleTicketInteraction(
             );
         }
 
-        // ------------------------------------------
-        // FECHAR
-        // ------------------------------------------
+        return true;
+    }
+
+    // ==================================================
+    // BOTÃO FECHAR
+    // ==================================================
+
+    if (
+        interaction.isButton() &&
+        interaction.customId ===
+            CLOSE_TICKET
+    ) {
 
         if (
-            interaction.customId ===
-            CLOSE_TICKET
+            !interaction.member ||
+            !interaction.member.roles.cache.has(
+                STAFF_ROLE_ID
+            )
         ) {
 
-            if (
-                !interaction.member ||
-                !interaction.member.roles.cache.has(
-                    STAFF_ROLE_ID
-                )
-            ) {
-
-                return interaction.reply({
-                    content:
-                        "❌ Apenas a equipe responsável pode fechar este ticket.",
-
-                    flags:
-                        MessageFlags.Ephemeral
-                });
-            }
-
-            await interaction.reply({
+            return interaction.reply({
                 content:
-                    "🔒 Fechando ticket...",
+                    "❌ Apenas a equipe responsável pode fechar este ticket.",
 
                 flags:
                     MessageFlags.Ephemeral
             });
-
-            setTimeout(
-                async () => {
-
-                    await interaction.channel
-                        .delete()
-                        .catch(
-                            error => {
-
-                                console.error(
-                                    "❌ Erro ao fechar ticket:",
-                                    error
-                                );
-
-                            }
-                        );
-
-                },
-                1500
-            );
-
-            return true;
         }
+
+        await interaction.reply({
+
+            content:
+                "🔒 Fechando ticket...",
+
+            flags:
+                MessageFlags.Ephemeral
+
+        });
+
+        setTimeout(
+            async () => {
+
+                await interaction.channel
+                    .delete()
+                    .catch(
+                        error => {
+
+                            console.error(
+                                "❌ Erro ao fechar ticket:",
+                                error
+                            );
+
+                        }
+                    );
+
+            },
+            1500
+        );
+
+        return true;
     }
 
-    // ==============================================
+    // ==================================================
     // MODAL OWNAR
-    // ==============================================
+    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
@@ -776,9 +847,9 @@ async function handleTicketInteraction(
         );
     }
 
-    // ==============================================
+    // ==================================================
     // MODAL PARCERIA
-    // ==============================================
+    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
@@ -807,9 +878,9 @@ async function handleTicketInteraction(
         );
     }
 
-    // ==============================================
+    // ==================================================
     // MODAL OUTROS
-    // ==============================================
+    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
@@ -855,11 +926,13 @@ async function executarTicketCommand(
     ) {
 
         return interaction.reply({
+
             content:
                 `❌ O comando deve ser usado em <#${TICKET_PANEL_CHANNEL_ID}>.`,
 
             flags:
                 MessageFlags.Ephemeral
+
         });
     }
 

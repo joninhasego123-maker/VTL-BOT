@@ -6,7 +6,10 @@ const {
     ButtonStyle,
     ContainerBuilder,
     TextDisplayBuilder,
-    SeparatorBuilder
+    SeparatorBuilder,
+    SectionBuilder,
+    ThumbnailBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const supabase = require("./supabase");
@@ -15,8 +18,11 @@ const supabase = require("./supabase");
 // CONFIGURAÇÕES
 // ======================================================
 
-const CONTRACT_CHANNEL_ID = "1552636518886019072";
-const CONTRACT_LOG_CHANNEL_ID = "1552634532262584391";
+const CONTRACT_CHANNEL_ID =
+    "1552636518886019072";
+
+const CONTRACT_LOG_CHANNEL_ID =
+    "1552634532262584391";
 
 const POSITIONS = [
     "Goleiro",
@@ -37,7 +43,12 @@ const FUNCTIONS = [
 // ======================================================
 
 function verificarCanal(interaction) {
-    return interaction.channelId === CONTRACT_CHANNEL_ID;
+
+    return (
+        interaction.channelId ===
+        CONTRACT_CHANNEL_ID
+    );
+
 }
 
 // ======================================================
@@ -51,71 +62,196 @@ function criarContratoContainer({
     position,
     funcao,
     contractId,
-    status = "pending"
+    status = "pending",
+    logoUrl = null
 }) {
 
-    let statusText = "⏳ Aguardando resposta do jogador.";
+    let statusText =
+        "⏳ Aguardando resposta do jogador.";
 
     if (status === "accepted") {
-        statusText = "✅ Contrato aceito pelo jogador.";
+
+        statusText =
+            "✅ Contrato aceito pelo jogador.";
+
     }
 
     if (status === "declined") {
-        statusText = "❌ Contrato recusado pelo jogador.";
+
+        statusText =
+            "❌ Contrato recusado pelo jogador.";
+
     }
 
-    const container = new ContainerBuilder();
+    if (status === "released") {
+
+        statusText =
+            "🔓 Jogador liberado do time.";
+
+    }
+
+    const container =
+        new ContainerBuilder();
+
+    // ==================================================
+    // TÍTULO
+    // ==================================================
 
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            "## 📄 CONTRATO OFICIAL\n\n" +
-            `**Time:** ${teamRole}\n` +
-            `**Manager:** ${manager}\n` +
-            `**Manager ID:** \`${manager.id}\`\n` +
-            `**Player:** ${player}\n` +
-            `**Player ID:** \`${player.id}\`\n\n` +
-            `**Posição:** ${position}\n` +
-            `**Função:** ${funcao}\n\n` +
-            `**Status:** ${statusText}`
-        )
+        new TextDisplayBuilder()
+            .setContent(
+                "## 📄 CONTRATO OFICIAL"
+            )
     );
+
+    // ==================================================
+    // MANAGER
+    // ==================================================
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                `**Manager:** ${manager}\n` +
+                `**Manager ID:** \`${manager.id}\``
+            )
+    );
+
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
+    // ==================================================
+    // JOGADOR
+    // ==================================================
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                `**Jogador:** ${player}\n` +
+                `**Player ID:** \`${player.id}\``
+            )
+    );
+
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    // ==================================================
+    // TIME + LOGO À DIREITA
+    // ==================================================
+
+    if (logoUrl) {
+
+        const teamSection =
+            new SectionBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            `**Time:** ${teamRole}\n` +
+                            `**Posição:** ${position}\n` +
+                            `**Função:** ${funcao}`
+                        )
+                )
+                .setThumbnailAccessory(
+                    new ThumbnailBuilder()
+                        .setURL(logoUrl)
+                );
+
+        container.addSectionComponents(
+            teamSection
+        );
+
+    } else {
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `**Time:** ${teamRole}\n` +
+                    `**Posição:** ${position}\n` +
+                    `**Função:** ${funcao}`
+                )
+        );
+
+    }
+
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    // ==================================================
+    // STATUS
+    // ==================================================
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                `**Status:** ${statusText}`
+            )
+    );
+
+    // ==================================================
+    // BOTÕES
+    // ==================================================
+
     if (status === "pending") {
 
         const row =
-            new ActionRowBuilder().addComponents(
+            new ActionRowBuilder()
+                .addComponents(
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        `contract_accept_${contractId}`
-                    )
-                    .setLabel("Aceitar")
-                    .setEmoji("✅")
-                    .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `contract_accept_${contractId}`
+                        )
+                        .setLabel("Aceitar")
+                        .setEmoji("✅")
+                        .setStyle(
+                            ButtonStyle.Success
+                        ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        `contract_decline_${contractId}`
-                    )
-                    .setLabel("Recusar")
-                    .setEmoji("❌")
-                    .setStyle(ButtonStyle.Danger)
-            );
+                    new ButtonBuilder()
+                        .setCustomId(
+                            `contract_decline_${contractId}`
+                        )
+                        .setLabel("Recusar")
+                        .setEmoji("❌")
+                        .setStyle(
+                            ButtonStyle.Danger
+                        )
 
-        container.addActionRowComponents(row);
+                );
+
+        container.addActionRowComponents(
+            row
+        );
+
     }
 
+    // ==================================================
+    // FOOTER
+    // ==================================================
+
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            "-# VTL - CONTRACT SYSTEM"
-        )
+        new TextDisplayBuilder()
+            .setContent(
+                "-# VTL - CONTRACT SYSTEM"
+            )
     );
 
     return container;
+
 }
 
 // ======================================================
@@ -123,21 +259,40 @@ function criarContratoContainer({
 // ======================================================
 
 async function registrarContrato({
-    interaction,
-    manager,
-    player,
-    teamRole,
-    position,
-    funcao,
+    client,
+    contract,
     status
 }) {
 
     try {
 
-        const logChannel =
-            interaction.guild.channels.cache.get(
-                CONTRACT_LOG_CHANNEL_ID
+        // ==============================================
+        // BUSCAR SERVIDOR
+        // ==============================================
+
+        const guild =
+            await client.guilds.fetch(
+                contract.guild_id
+            ).catch(() => null);
+
+        if (!guild) {
+
+            console.error(
+                "❌ Não foi possível encontrar o servidor do contrato."
             );
+
+            return;
+
+        }
+
+        // ==============================================
+        // BUSCAR CANAL DE LOG
+        // ==============================================
+
+        const logChannel =
+            await guild.channels.fetch(
+                CONTRACT_LOG_CHANNEL_ID
+            ).catch(() => null);
 
         if (!logChannel) {
 
@@ -146,33 +301,109 @@ async function registrarContrato({
             );
 
             return;
+
         }
 
-        let statusText = "❓ Desconhecido";
+        // ==============================================
+        // BUSCAR USUÁRIOS
+        // ==============================================
+
+        const manager =
+            await client.users.fetch(
+                contract.manager_id
+            ).catch(() => null);
+
+        const player =
+            await client.users.fetch(
+                contract.player_id
+            ).catch(() => null);
+
+        // ==============================================
+        // BUSCAR CARGO DO TIME
+        // ==============================================
+
+        const teamRole =
+            await guild.roles.fetch(
+                contract.team_role_id
+            ).catch(() => null);
+
+        // ==============================================
+        // BUSCAR TIME
+        // ==============================================
+
+        const {
+            data: team,
+            error: teamError
+        } = await supabase
+            .from("teams")
+            .select(
+                "name, logo_url, role_id"
+            )
+            .eq(
+                "guild_id",
+                contract.guild_id
+            )
+            .eq(
+                "role_id",
+                contract.team_role_id
+            )
+            .maybeSingle();
+
+        if (teamError) {
+
+            console.error(
+                "❌ Erro ao buscar dados do time para o log:",
+                teamError
+            );
+
+        }
+
+        // ==============================================
+        // STATUS
+        // ==============================================
+
+        let statusText =
+            "❓ Desconhecido";
 
         if (status === "accepted") {
-            statusText = "✅ ACEITO";
+
+            statusText =
+                "✅ ACEITO";
+
         }
 
         if (status === "declined") {
-            statusText = "❌ RECUSADO";
+
+            statusText =
+                "❌ RECUSADO";
+
         }
+
+        // ==============================================
+        // CONTAINER
+        // ==============================================
 
         const container =
             new ContainerBuilder();
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "## 📋 RESULTADO DO CONTRATO\n\n" +
-                `**Status:** ${statusText}\n\n` +
-                `**Time:** ${teamRole}\n` +
-                `**Manager:** ${manager}\n` +
-                `**Manager ID:** \`${manager.id}\`\n` +
-                `**Player:** ${player}\n` +
-                `**Player ID:** \`${player.id}\`\n\n` +
-                `**Posição:** ${position}\n` +
-                `**Função:** ${funcao}`
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    "## 📋 RESULTADO DO CONTRATO"
+                )
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `**Manager:** ${
+                        manager ||
+                        `<@${contract.manager_id}>`
+                    }\n` +
+
+                    `**Manager ID:** ` +
+                    `\`${contract.manager_id}\``
+                )
         );
 
         container.addSeparatorComponents(
@@ -180,15 +411,114 @@ async function registrarContrato({
         );
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "-# VTL - CONTRACT SYSTEM"
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    `**Jogador:** ${
+                        player ||
+                        `<@${contract.player_id}>`
+                    }\n` +
+
+                    `**Player ID:** ` +
+                    `\`${contract.player_id}\``
+                )
         );
 
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ==============================================
+        // TIME + LOGO
+        // ==============================================
+
+        const teamName =
+            team?.name ||
+            (
+                teamRole
+                    ? teamRole.name
+                    : "Time não encontrado"
+            );
+
+        const teamMention =
+            teamRole
+                ? teamRole.toString()
+                : `<@&${contract.team_role_id}>`;
+
+        if (team?.logo_url) {
+
+            container.addSectionComponents(
+                new SectionBuilder()
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `**Time:** ${teamMention}\n` +
+                                `**Nome:** ${teamName}\n` +
+                                `**Posição:** ${contract.position}\n` +
+                                `**Função:** ${contract.function}`
+                            )
+                    )
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder()
+                            .setURL(
+                                team.logo_url
+                            )
+                    )
+            );
+
+        } else {
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `**Time:** ${teamMention}\n` +
+                        `**Nome:** ${teamName}\n` +
+                        `**Posição:** ${contract.position}\n` +
+                        `**Função:** ${contract.function}`
+                    )
+            );
+
+        }
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `**Status:** ${statusText}`
+                )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    "-# VTL - CONTRACT SYSTEM"
+                )
+        );
+
+        // ==============================================
+        // ENVIAR LOG
+        // ==============================================
+
         await logChannel.send({
-            components: [container],
-            flags: 1 << 15
+
+            components: [
+                container
+            ],
+
+            flags:
+                MessageFlags.IsComponentsV2
+
         });
+
+        console.log(
+            `✅ Resultado do contrato ${contract.id} enviado para os logs.`
+        );
 
     } catch (error) {
 
@@ -196,7 +526,9 @@ async function registrarContrato({
             "❌ Erro ao registrar resultado do contrato:",
             error
         );
+
     }
+
 }
 
 // ======================================================
@@ -329,10 +661,12 @@ const contractCommand =
                 )
                 .setRequired(true)
                 .addChoices(
-                    ...POSITIONS.map(position => ({
-                        name: position,
-                        value: position
-                    }))
+                    ...POSITIONS.map(
+                        position => ({
+                            name: position,
+                            value: position
+                        })
+                    )
                 )
         )
         .addStringOption(option =>
@@ -343,10 +677,12 @@ const contractCommand =
                 )
                 .setRequired(true)
                 .addChoices(
-                    ...FUNCTIONS.map(funcao => ({
-                        name: funcao,
-                        value: funcao
-                    }))
+                    ...FUNCTIONS.map(
+                        funcao => ({
+                            name: funcao,
+                            value: funcao
+                        })
+                    )
                 )
         );
 
@@ -379,7 +715,10 @@ async function executarComando(interaction) {
     // /CRIARTIME
     // ==================================================
 
-    if (interaction.commandName === "criartime") {
+    if (
+        interaction.commandName ===
+        "criartime"
+    ) {
 
         if (
             !interaction.memberPermissions.has(
@@ -392,6 +731,7 @@ async function executarComando(interaction) {
                     "❌ Você precisa ser administrador para criar um time.",
                 ephemeral: true
             });
+
         }
 
         if (!interaction.guildId) {
@@ -401,21 +741,21 @@ async function executarComando(interaction) {
                     "❌ Este comando só pode ser usado em um servidor.",
                 ephemeral: true
             });
+
         }
 
         const nome =
-            interaction.options.getString("nome")
+            interaction.options
+                .getString("nome")
                 .trim();
 
         const logo =
-            interaction.options.getAttachment("logo");
+            interaction.options
+                .getAttachment("logo");
 
         const cargo =
-            interaction.options.getRole("cargo");
-
-        // ----------------------------------------------
-        // VERIFICAR IMAGEM
-        // ----------------------------------------------
+            interaction.options
+                .getRole("cargo");
 
         if (!logo) {
 
@@ -424,6 +764,7 @@ async function executarComando(interaction) {
                     "❌ Você precisa enviar uma imagem como logo.",
                 ephemeral: true
             });
+
         }
 
         const tiposPermitidos = [
@@ -446,20 +787,25 @@ async function executarComando(interaction) {
                     "❌ O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF.",
                 ephemeral: true
             });
-        }
 
-        // ----------------------------------------------
-        // VERIFICAR SE O CARGO JÁ É UM TIME
-        // ----------------------------------------------
+        }
 
         const {
             data: timeExistente,
             error: buscaError
         } = await supabase
             .from("teams")
-            .select("id, name")
-            .eq("guild_id", interaction.guildId)
-            .eq("role_id", cargo.id)
+            .select(
+                "id, name"
+            )
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "role_id",
+                cargo.id
+            )
             .maybeSingle();
 
         if (buscaError) {
@@ -474,6 +820,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível verificar os times cadastrados.",
                 ephemeral: true
             });
+
         }
 
         if (timeExistente) {
@@ -483,11 +830,8 @@ async function executarComando(interaction) {
                     `❌ O cargo ${cargo} já está cadastrado como o time **${timeExistente.name}**.`,
                 ephemeral: true
             });
-        }
 
-        // ----------------------------------------------
-        // VERIFICAR NOME DUPLICADO
-        // ----------------------------------------------
+        }
 
         const {
             data: nomeExistente,
@@ -495,8 +839,14 @@ async function executarComando(interaction) {
         } = await supabase
             .from("teams")
             .select("id")
-            .eq("guild_id", interaction.guildId)
-            .ilike("name", nome)
+            .ilike(
+                "name",
+                nome
+            )
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
             .maybeSingle();
 
         if (nomeError) {
@@ -511,6 +861,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível verificar o nome do time.",
                 ephemeral: true
             });
+
         }
 
         if (nomeExistente) {
@@ -520,11 +871,8 @@ async function executarComando(interaction) {
                     "❌ Já existe um time com esse nome neste servidor.",
                 ephemeral: true
             });
-        }
 
-        // ----------------------------------------------
-        // SALVAR TIME
-        // ----------------------------------------------
+        }
 
         const {
             data: time,
@@ -532,11 +880,20 @@ async function executarComando(interaction) {
         } = await supabase
             .from("teams")
             .insert({
-                guild_id: interaction.guildId,
-                name: nome,
-                logo_url: logo.url,
-                role_id: cargo.id,
-                created_by: interaction.user.id
+                guild_id:
+                    interaction.guildId,
+
+                name:
+                    nome,
+
+                logo_url:
+                    logo.url,
+
+                role_id:
+                    cargo.id,
+
+                created_by:
+                    interaction.user.id
             })
             .select()
             .single();
@@ -553,23 +910,21 @@ async function executarComando(interaction) {
                     "❌ Não foi possível cadastrar o time no Supabase.",
                 ephemeral: true
             });
-        }
 
-        // ----------------------------------------------
-        // RESPOSTA
-        // ----------------------------------------------
+        }
 
         const container =
             new ContainerBuilder();
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "## ⚽ TIME CADASTRADO\n\n" +
-                `**Nome:** ${time.name}\n` +
-                `**Cargo:** ${cargo}\n` +
-                `**Criado por:** ${interaction.user}\n` +
-                `**ID:** \`${time.id}\``
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    "## ⚽ TIME CADASTRADO\n\n" +
+                    `**Nome:** ${time.name}\n` +
+                    `**Cargo:** ${cargo}\n` +
+                    `**Criado por:** ${interaction.user}\n` +
+                    `**ID:** \`${time.id}\``
+                )
         );
 
         container.addSeparatorComponents(
@@ -577,22 +932,33 @@ async function executarComando(interaction) {
         );
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "-# VTL - CONTRACT SYSTEM"
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    "-# VTL - CONTRACT SYSTEM"
+                )
         );
 
         return interaction.reply({
-            components: [container],
-            flags: 1 << 15
+
+            components: [
+                container
+            ],
+
+            flags:
+                MessageFlags.IsComponentsV2
+
         });
+
     }
 
     // ==================================================
     // /PERM
     // ==================================================
 
-    if (interaction.commandName === "perm") {
+    if (
+        interaction.commandName ===
+        "perm"
+    ) {
 
         if (
             !interaction.memberPermissions.has(
@@ -605,26 +971,16 @@ async function executarComando(interaction) {
                     "❌ Você precisa ser administrador para usar este comando.",
                 ephemeral: true
             });
-        }
 
-        if (!interaction.guildId) {
-
-            return interaction.reply({
-                content:
-                    "❌ Este comando só pode ser usado em um servidor.",
-                ephemeral: true
-            });
         }
 
         const manager =
-            interaction.options.getUser("manager");
+            interaction.options
+                .getUser("manager");
 
         const teamRole =
-            interaction.options.getRole("time");
-
-        // ----------------------------------------------
-        // VERIFICAR SE O TIME ESTÁ CADASTRADO
-        // ----------------------------------------------
+            interaction.options
+                .getRole("time");
 
         const {
             data: team,
@@ -632,8 +988,14 @@ async function executarComando(interaction) {
         } = await supabase
             .from("teams")
             .select("*")
-            .eq("guild_id", interaction.guildId)
-            .eq("role_id", teamRole.id)
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "role_id",
+                teamRole.id
+            )
             .maybeSingle();
 
         if (teamError) {
@@ -648,6 +1010,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível verificar se o time está cadastrado.",
                 ephemeral: true
             });
+
         }
 
         if (!team) {
@@ -658,26 +1021,31 @@ async function executarComando(interaction) {
                     "Cadastre o time primeiro usando `/criartime`.",
                 ephemeral: true
             });
+
         }
 
-        // ----------------------------------------------
-        // SALVAR PERMISSÃO
-        // ----------------------------------------------
+        const {
+            error
+        } = await supabase
+            .from(
+                "manager_permissions"
+            )
+            .upsert(
+                {
+                    guild_id:
+                        interaction.guildId,
 
-        const { error } =
-            await supabase
-                .from("manager_permissions")
-                .upsert(
-                    {
-                        guild_id: interaction.guildId,
-                        manager_id: manager.id,
-                        team_role_id: teamRole.id
-                    },
-                    {
-                        onConflict:
-                            "guild_id,manager_id"
-                    }
-                );
+                    manager_id:
+                        manager.id,
+
+                    team_role_id:
+                        teamRole.id
+                },
+                {
+                    onConflict:
+                        "guild_id,manager_id"
+                }
+            );
 
         if (error) {
 
@@ -691,6 +1059,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível salvar a permissão.",
                 ephemeral: true
             });
+
         }
 
         return interaction.reply({
@@ -698,13 +1067,17 @@ async function executarComando(interaction) {
                 `✅ ${manager} agora possui permissão de Manager para o time ${teamRole} (**${team.name}**).`,
             ephemeral: true
         });
+
     }
 
     // ==================================================
     // /UNPERM
     // ==================================================
 
-    if (interaction.commandName === "unperm") {
+    if (
+        interaction.commandName ===
+        "unperm"
+    ) {
 
         if (
             !interaction.memberPermissions.has(
@@ -717,23 +1090,28 @@ async function executarComando(interaction) {
                     "❌ Você precisa ser administrador para usar este comando.",
                 ephemeral: true
             });
+
         }
 
         const manager =
-            interaction.options.getUser("manager");
+            interaction.options
+                .getUser("manager");
 
-        const { error } =
-            await supabase
-                .from("manager_permissions")
-                .delete()
-                .eq(
-                    "guild_id",
-                    interaction.guildId
-                )
-                .eq(
-                    "manager_id",
-                    manager.id
-                );
+        const {
+            error
+        } = await supabase
+            .from(
+                "manager_permissions"
+            )
+            .delete()
+            .eq(
+                "guild_id",
+                interaction.guildId
+            )
+            .eq(
+                "manager_id",
+                manager.id
+            );
 
         if (error) {
 
@@ -747,6 +1125,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível remover a permissão.",
                 ephemeral: true
             });
+
         }
 
         return interaction.reply({
@@ -754,13 +1133,17 @@ async function executarComando(interaction) {
                 `✅ A permissão de ${manager} foi removida neste servidor.`,
             ephemeral: true
         });
+
     }
 
     // ==================================================
     // /PERMLIST
     // ==================================================
 
-    if (interaction.commandName === "permlist") {
+    if (
+        interaction.commandName ===
+        "permlist"
+    ) {
 
         if (
             !interaction.memberPermissions.has(
@@ -773,13 +1156,16 @@ async function executarComando(interaction) {
                     "❌ Você precisa ser administrador para usar este comando.",
                 ephemeral: true
             });
+
         }
 
         const {
             data,
             error
         } = await supabase
-            .from("manager_permissions")
+            .from(
+                "manager_permissions"
+            )
             .select(
                 "manager_id, team_role_id"
             )
@@ -806,9 +1192,13 @@ async function executarComando(interaction) {
                     "❌ Não foi possível carregar a lista de permissões.",
                 ephemeral: true
             });
+
         }
 
-        if (!data || data.length === 0) {
+        if (
+            !data ||
+            data.length === 0
+        ) {
 
             return interaction.reply({
                 content:
@@ -816,11 +1206,15 @@ async function executarComando(interaction) {
                     "Nenhum Manager possui permissão neste servidor.",
                 ephemeral: true
             });
+
         }
 
         let lista = "";
 
-        for (const permission of data) {
+        for (
+            const permission
+            of data
+        ) {
 
             const manager =
                 await interaction.client.users
@@ -847,16 +1241,18 @@ async function executarComando(interaction) {
             lista +=
                 `👤 **Manager:** ${managerText}\n` +
                 `⚽ **Time:** ${roleText}\n\n`;
+
         }
 
         const container =
             new ContainerBuilder();
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "## 📋 MANAGERS AUTORIZADOS\n\n" +
-                lista
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    "## 📋 MANAGERS AUTORIZADOS\n\n" +
+                    lista
+                )
         );
 
         container.addSeparatorComponents(
@@ -864,16 +1260,18 @@ async function executarComando(interaction) {
         );
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "-# VTL - CONTRACT SYSTEM"
-            )
+            new TextDisplayBuilder()
+                .setContent(
+                    "-# VTL - CONTRACT SYSTEM"
+                )
         );
 
         return interaction.reply({
-            components: [container],
-            flags: 1 << 15,
+            content:
+                "Use a lista abaixo.",
             ephemeral: true
         });
+
     }
 
     // ==================================================
@@ -881,47 +1279,63 @@ async function executarComando(interaction) {
     // ==================================================
 
     if (
-        interaction.commandName === "contract" ||
-        interaction.commandName === "release"
+        interaction.commandName ===
+        "contract" ||
+        interaction.commandName ===
+        "release"
     ) {
 
-        if (!verificarCanal(interaction)) {
+        if (
+            !verificarCanal(
+                interaction
+            )
+        ) {
 
             return interaction.reply({
                 content:
                     `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`,
                 ephemeral: true
             });
+
         }
+
     }
 
     // ==================================================
     // /CONTRACT
     // ==================================================
 
-    if (interaction.commandName === "contract") {
+    if (
+        interaction.commandName ===
+        "contract"
+    ) {
 
         const managerId =
             interaction.user.id;
 
         const player =
-            interaction.options.getUser("player");
+            interaction.options
+                .getUser("player");
 
         const position =
-            interaction.options.getString("posicao");
+            interaction.options
+                .getString("posicao");
 
         const funcao =
-            interaction.options.getString("funcao");
+            interaction.options
+                .getString("funcao");
 
-        // ----------------------------------------------
-        // BUSCAR PERMISSÃO
-        // ----------------------------------------------
+        // ==============================================
+        // PERMISSÃO
+        // ==============================================
 
         const {
             data: permission,
             error: permissionError
         } = await supabase
-            .from("manager_permissions")
+            .from(
+                "manager_permissions"
+            )
             .select(
                 "manager_id, team_role_id"
             )
@@ -947,16 +1361,17 @@ async function executarComando(interaction) {
                     "❌ Erro ao verificar sua permissão de Manager.",
                 ephemeral: true
             });
+
         }
 
         if (!permission) {
 
             return interaction.reply({
                 content:
-                    "❌ Você não possui permissão de Manager neste servidor.\n" +
-                    "Um administrador precisa usar `/perm` primeiro.",
+                    "❌ Você não possui permissão de Manager neste servidor.",
                 ephemeral: true
             });
+
         }
 
         const teamRole =
@@ -971,18 +1386,21 @@ async function executarComando(interaction) {
                     "❌ O cargo do seu time não foi encontrado neste servidor.",
                 ephemeral: true
             });
+
         }
 
-        // ----------------------------------------------
-        // VERIFICAR SE O TIME AINDA ESTÁ CADASTRADO
-        // ----------------------------------------------
+        // ==============================================
+        // BUSCAR TIME
+        // ==============================================
 
         const {
             data: team,
             error: teamError
         } = await supabase
             .from("teams")
-            .select("*")
+            .select(
+                "id, name, logo_url, role_id"
+            )
             .eq(
                 "guild_id",
                 interaction.guildId
@@ -1005,20 +1423,22 @@ async function executarComando(interaction) {
                     "❌ Não foi possível verificar o cadastro do seu time.",
                 ephemeral: true
             });
+
         }
 
         if (!team) {
 
             return interaction.reply({
                 content:
-                    "❌ Seu time não está mais cadastrado na VTL.",
+                    "❌ Seu time não está cadastrado na VTL.",
                 ephemeral: true
             });
+
         }
 
-        // ----------------------------------------------
-        // VERIFICAR CONTRATO EXISTENTE
-        // ----------------------------------------------
+        // ==============================================
+        // VERIFICAR CONTRATO
+        // ==============================================
 
         const {
             data: existingContract,
@@ -1052,6 +1472,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível verificar os contratos do jogador.",
                 ephemeral: true
             });
+
         }
 
         if (existingContract) {
@@ -1061,11 +1482,12 @@ async function executarComando(interaction) {
                     "❌ Esse jogador já possui um contrato ativo.",
                 ephemeral: true
             });
+
         }
 
-        // ----------------------------------------------
+        // ==============================================
         // CRIAR CONTRATO
-        // ----------------------------------------------
+        // ==============================================
 
         const {
             data: contract,
@@ -1073,14 +1495,31 @@ async function executarComando(interaction) {
         } = await supabase
             .from("contracts")
             .insert({
-                guild_id: interaction.guildId,
-                manager_id: managerId,
-                manager_role_id: teamRole.id,
-                player_id: player.id,
-                team_role_id: teamRole.id,
-                position: position,
-                function: funcao,
-                status: "pending"
+
+                guild_id:
+                    interaction.guildId,
+
+                manager_id:
+                    managerId,
+
+                manager_role_id:
+                    teamRole.id,
+
+                player_id:
+                    player.id,
+
+                team_role_id:
+                    teamRole.id,
+
+                position:
+                    position,
+
+                function:
+                    funcao,
+
+                status:
+                    "pending"
+
             })
             .select()
             .single();
@@ -1097,47 +1536,77 @@ async function executarComando(interaction) {
                     "❌ Não foi possível criar o contrato.",
                 ephemeral: true
             });
+
         }
 
-        // ----------------------------------------------
-        // CONTRATO
-        // ----------------------------------------------
+        // ==============================================
+        // CONTRATO NO CANAL
+        // ==============================================
 
         const container =
             criarContratoContainer({
-                manager: interaction.user,
-                player: player,
-                teamRole: teamRole,
-                position: position,
-                funcao: funcao,
-                contractId: contract.id,
-                status: "pending"
+
+                manager:
+                    interaction.user,
+
+                player:
+                    player,
+
+                teamRole:
+                    teamRole,
+
+                position:
+                    position,
+
+                funcao:
+                    funcao,
+
+                contractId:
+                    contract.id,
+
+                status:
+                    "pending",
+
+                logoUrl:
+                    team.logo_url
+
             });
 
         const contractMessage =
             await interaction.channel.send({
-                components: [container],
-                flags: 1 << 15
+
+                components: [
+                    container
+                ],
+
+                flags:
+                    MessageFlags.IsComponentsV2
+
             });
 
-        // ----------------------------------------------
+        // ==============================================
         // SALVAR MENSAGEM
-        // ----------------------------------------------
+        // ==============================================
 
         await supabase
             .from("contracts")
             .update({
-                message_id: contractMessage.id,
-                channel_id: interaction.channelId
+
+                message_id:
+                    contractMessage.id,
+
+                channel_id:
+                    interaction.channelId
+
             })
             .eq(
                 "id",
                 contract.id
             );
 
-        // ----------------------------------------------
+        // ==============================================
         // DM
-        // ----------------------------------------------
+        // ==============================================
 
         try {
 
@@ -1146,18 +1615,42 @@ async function executarComando(interaction) {
 
             const dmContainer =
                 criarContratoContainer({
-                    manager: interaction.user,
-                    player: player,
-                    teamRole: teamRole,
-                    position: position,
-                    funcao: funcao,
-                    contractId: contract.id,
-                    status: "pending"
+
+                    manager:
+                        interaction.user,
+
+                    player:
+                        player,
+
+                    teamRole:
+                        teamRole,
+
+                    position:
+                        position,
+
+                    funcao:
+                        funcao,
+
+                    contractId:
+                        contract.id,
+
+                    status:
+                        "pending",
+
+                    logoUrl:
+                        team.logo_url
+
                 });
 
             await dm.send({
-                components: [dmContainer],
-                flags: 1 << 15
+
+                components: [
+                    dmContainer
+                ],
+
+                flags:
+                    MessageFlags.IsComponentsV2
+
             });
 
         } catch (error) {
@@ -1167,43 +1660,57 @@ async function executarComando(interaction) {
             );
 
             const fallbackChannel =
-                interaction.guild.channels.cache.get(
+                await interaction.guild.channels.fetch(
                     CONTRACT_LOG_CHANNEL_ID
-                );
+                ).catch(() => null);
 
             if (fallbackChannel) {
 
                 await fallbackChannel.send({
+
                     content:
                         `⚠️ Não foi possível enviar o contrato por DM para ${player}.`
+
                 }).catch(() => {});
+
             }
+
         }
 
         return interaction.reply({
+
             content:
                 `✅ Contrato enviado para ${player}.`,
+
             ephemeral: true
+
         });
+
     }
 
     // ==================================================
     // /RELEASE
     // ==================================================
 
-    if (interaction.commandName === "release") {
+    if (
+        interaction.commandName ===
+        "release"
+    ) {
 
         const managerId =
             interaction.user.id;
 
         const player =
-            interaction.options.getUser("player");
+            interaction.options
+                .getUser("player");
 
         const {
             data: permission,
             error: permissionError
         } = await supabase
-            .from("manager_permissions")
+            .from(
+                "manager_permissions"
+            )
             .select(
                 "team_role_id"
             )
@@ -1229,6 +1736,7 @@ async function executarComando(interaction) {
                     "❌ Erro ao verificar sua permissão.",
                 ephemeral: true
             });
+
         }
 
         if (!permission) {
@@ -1238,6 +1746,7 @@ async function executarComando(interaction) {
                     "❌ Você não possui permissão de Manager neste servidor.",
                 ephemeral: true
             });
+
         }
 
         const {
@@ -1276,6 +1785,7 @@ async function executarComando(interaction) {
                     "❌ Não foi possível encontrar o contrato.",
                 ephemeral: true
             });
+
         }
 
         if (!contract) {
@@ -1285,6 +1795,7 @@ async function executarComando(interaction) {
                     "❌ Esse jogador não possui contrato com seu time.",
                 ephemeral: true
             });
+
         }
 
         const {
@@ -1292,7 +1803,8 @@ async function executarComando(interaction) {
         } = await supabase
             .from("contracts")
             .update({
-                status: "released"
+                status:
+                    "released"
             })
             .eq(
                 "id",
@@ -1311,26 +1823,38 @@ async function executarComando(interaction) {
                     "❌ Não foi possível liberar o jogador.",
                 ephemeral: true
             });
+
         }
 
         return interaction.reply({
+
             content:
                 `✅ ${player} foi liberado do time.`,
+
             ephemeral: true
+
         });
+
     }
 
     return false;
+
 }
 
 // ======================================================
 // PROCESSAR BOTÕES
 // ======================================================
 
-async function processarBotaoContrato(interaction) {
+async function processarBotaoContrato(
+    interaction
+) {
 
-    if (!interaction.isButton()) {
+    if (
+        !interaction.isButton()
+    ) {
+
         return false;
+
     }
 
     if (
@@ -1341,7 +1865,9 @@ async function processarBotaoContrato(interaction) {
             "contract_decline_"
         )
     ) {
+
         return false;
+
     }
 
     const accepted =
@@ -1357,9 +1883,9 @@ async function processarBotaoContrato(interaction) {
             ""
         );
 
-    // ----------------------------------------------
+    // ==============================================
     // BUSCAR CONTRATO
-    // ----------------------------------------------
+    // ==============================================
 
     const {
         data: contract,
@@ -1375,16 +1901,22 @@ async function processarBotaoContrato(interaction) {
 
     if (error || !contract) {
 
+        console.error(
+            "❌ Erro ao buscar contrato:",
+            error
+        );
+
         return interaction.reply({
             content:
                 "❌ Este contrato não foi encontrado.",
             ephemeral: true
         });
+
     }
 
-    // ----------------------------------------------
+    // ==============================================
     // VERIFICAR JOGADOR
-    // ----------------------------------------------
+    // ==============================================
 
     if (
         interaction.user.id !==
@@ -1396,11 +1928,12 @@ async function processarBotaoContrato(interaction) {
                 "❌ Apenas o jogador que recebeu este contrato pode responder.",
             ephemeral: true
         });
+
     }
 
-    // ----------------------------------------------
+    // ==============================================
     // VERIFICAR STATUS
-    // ----------------------------------------------
+    // ==============================================
 
     if (
         contract.status !==
@@ -1412,6 +1945,7 @@ async function processarBotaoContrato(interaction) {
                 "❌ Este contrato já foi respondido.",
             ephemeral: true
         });
+
     }
 
     const newStatus =
@@ -1419,16 +1953,19 @@ async function processarBotaoContrato(interaction) {
             ? "accepted"
             : "declined";
 
-    // ----------------------------------------------
-    // ATUALIZAR
-    // ----------------------------------------------
+    // ==============================================
+    // ATUALIZAR SUPABASE
+    // ==============================================
 
     const {
         error: updateError
     } = await supabase
         .from("contracts")
         .update({
-            status: newStatus
+
+            status:
+                newStatus
+
         })
         .eq(
             "id",
@@ -1447,11 +1984,21 @@ async function processarBotaoContrato(interaction) {
                 "❌ Não foi possível atualizar o contrato.",
             ephemeral: true
         });
+
     }
 
-    // ----------------------------------------------
-    // BUSCAR DADOS
-    // ----------------------------------------------
+    // ==============================================
+    // BUSCAR SERVIDOR
+    // ==============================================
+
+    const guild =
+        await interaction.client.guilds.fetch(
+            contract.guild_id
+        ).catch(() => null);
+
+    // ==============================================
+    // BUSCAR MANAGER
+    // ==============================================
 
     const manager =
         await interaction.client.users
@@ -1460,6 +2007,10 @@ async function processarBotaoContrato(interaction) {
             )
             .catch(() => null);
 
+    // ==============================================
+    // BUSCAR PLAYER
+    // ==============================================
+
     const player =
         await interaction.client.users
             .fetch(
@@ -1467,22 +2018,41 @@ async function processarBotaoContrato(interaction) {
             )
             .catch(() => null);
 
-    const guild =
-        interaction.guild;
+    // ==============================================
+    // BUSCAR TIME
+    // ==============================================
 
     const teamRole =
         guild
-            ? guild.roles.cache.get(
+            ? await guild.roles.fetch(
                 contract.team_role_id
-            )
+            ).catch(() => null)
             : null;
 
-    // ----------------------------------------------
-    // CONTAINER ATUALIZADO
-    // ----------------------------------------------
+    const {
+        data: team
+    } = await supabase
+        .from("teams")
+        .select(
+            "name, logo_url, role_id"
+        )
+        .eq(
+            "guild_id",
+            contract.guild_id
+        )
+        .eq(
+            "role_id",
+            contract.team_role_id
+        )
+        .maybeSingle();
+
+    // ==============================================
+    // ATUALIZAR CONTRATO NA MENSAGEM
+    // ==============================================
 
     const container =
         criarContratoContainer({
+
             manager:
                 manager ||
                 `<@${contract.manager_id}>`,
@@ -1505,50 +2075,44 @@ async function processarBotaoContrato(interaction) {
                 contract.id,
 
             status:
-                newStatus
-        });
+                newStatus,
 
-    // ----------------------------------------------
-    // ATUALIZAR MENSAGEM
-    // ----------------------------------------------
+            logoUrl:
+                team?.logo_url ||
+                null
+
+        });
 
     await interaction.update({
-        components: [container],
-        flags: 1 << 15
+
+        components: [
+            container
+        ],
+
+        flags:
+            MessageFlags.IsComponentsV2
+
     });
 
-    // ----------------------------------------------
-    // LOG
-    // ----------------------------------------------
+    // ==============================================
+    // REGISTRAR LOG
+    // ==============================================
 
-    if (
-        guild &&
-        manager &&
-        player &&
-        teamRole
-    ) {
+    await registrarContrato({
 
-        await registrarContrato({
-            interaction,
-            manager,
-            player,
-            teamRole,
-            position:
-                contract.position,
-            funcao:
-                contract.function,
-            status:
-                newStatus
-        });
+        client:
+            interaction.client,
 
-    } else {
+        contract:
+            contract,
 
-        console.error(
-            "❌ Não foi possível registrar o contrato nos logs porque faltam dados."
-        );
-    }
+        status:
+            newStatus
+
+    });
 
     return true;
+
 }
 
 // ======================================================
@@ -1556,12 +2120,21 @@ async function processarBotaoContrato(interaction) {
 // ======================================================
 
 module.exports = {
+
     criarTimeCommand,
+
     permCommand,
+
     unpermCommand,
+
     permlistCommand,
+
     contractCommand,
+
     releaseCommand,
+
     executarComando,
+
     processarBotaoContrato
+
 };

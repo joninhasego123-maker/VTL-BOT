@@ -612,12 +612,9 @@ async function executarTicketCommand(interaction) {
 // EXPORTS
 // ======================================================
 
+ticketCommand.execute = executarTicketCommand;
+
 module.exports = {
-    ticketCommand: {
-        ...ticketCommand,
-
-        execute: executarTicketCommand
-    },
-
+    ticketCommand,
     handleTicketInteraction
 };

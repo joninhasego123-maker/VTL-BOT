@@ -3,8 +3,10 @@ const {
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
-    ActionRowBuilder,
+    MediaGalleryBuilder,
+    MediaGalleryItemBuilder,
     StringSelectMenuBuilder,
+    ActionRowBuilder,
     MessageFlags
 } = require("discord.js");
 
@@ -12,56 +14,48 @@ const {
 // CONFIGURAÇÃO
 // ======================================================
 
-const RULES_CHANNEL_ID =
-    "1552633537939898469";
+const RULES_CHANNEL_ID = "1552633537939898469";
+
+const RULES_IMAGE_URL =
+    "https://plain-enam-prod-public.komododecks.com/202609/29/GV0ZHbsSKoyh7gJ7wkAC/image.png";
 
 // ======================================================
 // COMANDO /RULES
 // ======================================================
 
-const rulesCommand =
-    new SlashCommandBuilder()
-        .setName("rules")
-        .setDescription(
-            "Envia o painel de regras da VTL."
-        );
+const rulesCommand = new SlashCommandBuilder()
+    .setName("rules")
+    .setDescription("Envia o painel de regras da VTL.");
 
 // ======================================================
-// PAINEL PRINCIPAL
+// REGRAS GERAIS
 // ======================================================
 
-function criarPainelRules() {
+function criarRegrasGerais() {
 
-    const container =
-        new ContainerBuilder();
+    const container = new ContainerBuilder();
 
-    // ==================================================
-    // SEPARADOR
-    // ==================================================
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent("# 🚨 Regras Gerais")
+    );
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
-    // ==================================================
-    // TERMOS DO DISCORD
-    // ==================================================
-
     container.addTextDisplayComponents(
-
         new TextDisplayBuilder()
             .setContent(
                 "<a:arrow_arrow1:1554526129883451472> Todos os membros devem seguir os [**Termos de Serviço do Discord**](https://discord.com/terms) e todas as regras da comunidade."
             )
-
     );
 
-    // ==================================================
-    // POLÍTICA
-    // ==================================================
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
 
     container.addTextDisplayComponents(
-
         new TextDisplayBuilder()
             .setContent(
                 "```ansi\n" +
@@ -70,187 +64,31 @@ function criarPainelRules() {
                 "  ✗  Não discuta nem escale\u001b[0m\n" +
                 "```"
             )
-
     );
-
-    // ==================================================
-    // SEPARADOR
-    // ==================================================
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
-    // ==================================================
-    // BAN APPEALS
-    // ==================================================
-
     container.addTextDisplayComponents(
-
         new TextDisplayBuilder()
             .setContent(
-                "## <a:staff:1554530135590314046> Ban Appeals"
-            )
-
-    );
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
+                "## <a:staff:1554530135590314046> Ban Appeals\n\n" +
                 "> Abra um ticket se quiser apelar um ban\n" +
-                "> Você receberá uma resposta apos a revisão\n" +
-                "> Entre em contato com <@1291821391271690333> para duvidas"
+                "> Você receberá uma resposta após a revisão\n" +
+                "> Entre em contato com <@1291821391271690333> para dúvidas"
             )
-
     );
-
-    // ==================================================
-    // SEPARADOR
-    // ==================================================
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
-    // ==================================================
-    // MENU
-    // ==================================================
-
-    const menu =
-        new StringSelectMenuBuilder()
-            .setCustomId(
-                "rules_select"
-            )
-            .setPlaceholder(
-                "Selecione uma categoria de regras"
-            )
-            .setMinValues(1)
-            .setMaxValues(1)
-            .addOptions(
-
-                {
-                    label:
-                        "Regras gerais",
-
-                    value:
-                        "general_rules",
-
-                    emoji:
-                        "🚨"
-                },
-
-                {
-                    label:
-                        "Regras no jogo",
-
-                    value:
-                        "game_rules",
-
-                    emoji:
-                        "⚽"
-                }
-
-            );
-
-    container.addActionRowComponents(
-        new ActionRowBuilder()
-            .addComponents(menu)
-    );
-
-    // ==================================================
-    // SEPARADOR
-    // ==================================================
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
-    // ==================================================
-    // FOOTER
-    // ==================================================
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "-# © 2026 VTL · Ao entrar você concorda com todas as regras."
-            )
-
-    );
-
-    return container;
-}
-
-// ======================================================
-// REGRAS GERAIS
-// ======================================================
-
-function criarRegrasGerais() {
-
-    const container =
-        new ContainerBuilder();
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "## ⚠️・REGRAS GERAIS"
-            )
-
-    );
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
-    const regras = [
-
-        "```1. Respeite todos os membros da comunidade. Ofensas, provocações excessivas, preconceito ou qualquer tipo de discriminação não serão tolerados.```",
-
-        "```2. É proibido spam, flood ou envio excessivo de mensagens, menções ou conteúdos sem propósito.```",
-
-        "```3. Não envie conteúdos NSFW, ilegais ou inadequados para o ambiente da comunidade.```",
-
-        "```4. É proibido divulgar outros servidores, comunidades ou serviços sem autorização da administração.```",
-
-        "```5. Não utilize contas alternativas para burlar punições ou restrições aplicadas pela staff.```",
-
-        "```6. Não tente explorar bugs, falhas ou vulnerabilidades do servidor ou dos sistemas da VTL.```",
-
-        "```7. Não se passe por membros da staff, jogadores, managers ou outras pessoas.```",
-
-        "```8. É proibido ameaçar, perseguir ou assediar outros membros da comunidade.```",
-
-        "```9. Siga as orientações da staff durante partidas, competições e atividades oficiais.```",
-
-        "```10. Discussões devem ser mantidas de maneira respeitosa. Evite iniciar ou prolongar conflitos desnecessários.```"
-
-    ];
-
-    for (const regra of regras) {
-
-        container.addTextDisplayComponents(
-
-            new TextDisplayBuilder()
-                .setContent(regra)
-
-        );
-
-    }
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
     container.addTextDisplayComponents(
-
         new TextDisplayBuilder()
             .setContent(
-                "> 🔔 Ao permanecer no servidor, você concorda em seguir todas as regras estabelecidas pela administração.\n" +
-                "> Tenha bom senso, respeite os outros e ajude a manter a comunidade organizada."
+                "-# VTL • Virtual TCS League"
             )
-
     );
 
     return container;
@@ -262,56 +100,144 @@ function criarRegrasGerais() {
 
 function criarRegrasJogo() {
 
-    const regras = [
+    const container = new ContainerBuilder();
 
-        "```1. Pausas\n\nAs pausas devem ser realizadas somente quando permitido pela arbitragem.```",
+    // --------------------------------------------------
+    // IMAGEM NO TOPO
+    // --------------------------------------------------
 
-        "```2. Last Attack & Counter-Attack\n\nÉ proibido realizar Last Attack ou Counter-Attack em situações não permitidas pela arbitragem.```",
+    container.addMediaGalleryComponents(
+        new MediaGalleryBuilder()
+            .addItems(
+                new MediaGalleryItemBuilder()
+                    .setURL(RULES_IMAGE_URL)
+            )
+    );
 
-        "```3. Vantagem\n\nA vantagem poderá ser aplicada pela arbitragem quando houver benefício claro para a equipe que sofreu a falta.```",
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
 
-        "```4. Desvios\n\nDesvios devem seguir as regras determinadas pela arbitragem.\n\n4.1 Decline\nO jogador poderá recusar determinadas situações de desvio quando previsto no regulamento.\n\n4.2 Humanoid\nSituações envolvendo humanoids deverão respeitar as decisões da arbitragem.```",
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "# ⚽ Regras no Jogo"
+            )
+    );
 
-        "```5. Bundles\n\nÉ proibido utilizar bundles ou recursos que proporcionem vantagem indevida durante a partida.```",
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
 
-        "```6. W.O / Auto-Win\n\nO W.O ou Auto-Win será aplicado somente nas situações previstas no regulamento.\n\n6.1 O não comparecimento de uma equipe poderá resultar em W.O.\n\n6.2 A equipe deverá cumprir o tempo limite determinado pela organização.\n\n6.3 A decisão final sobre W.O pertence à arbitragem/administração.```",
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "```1. Pausas\n\n" +
+                "As pausas só poderão ser realizadas em situações permitidas pela arbitragem.```\n\n" +
 
-        "```7. Quantidade de Jogadores\n\nAs equipes devem respeitar a quantidade de jogadores determinada para cada partida.```",
+                "```2. Last Attack & Counter-Attack\n\n" +
+                "É proibido iniciar um novo ataque imediatamente após uma jogada de Last Attack ou Counter-Attack quando a situação não permitir.```\n\n" +
 
-        "```8. Cartão Amarelo (YC)\n\nO cartão amarelo poderá ser aplicado pela arbitragem em situações de infração ou comportamento inadequado.```",
+                "```3. Vantagem\n\n" +
+                "A arbitragem poderá aplicar a regra da vantagem quando uma infração não impedir a continuidade da jogada.```\n\n" +
 
-        "```9. Lag\n\nProblemas de conexão devem ser comunicados à arbitragem. A arbitragem decidirá se a situação interfere na partida.```",
+                "```4. Desvios\n\n" +
+                "Desvios deverão seguir as decisões estabelecidas pela arbitragem.\n\n" +
+                "4.1 Decline\n\n" +
+                "Situações de Decline serão avaliadas pela arbitragem.\n\n" +
+                "4.2 Humanoid\n\n" +
+                "Situações envolvendo Humanoid deverão seguir a decisão da arbitragem.```\n\n" +
 
-        "```10. Crowd\n\nO Crowd deve respeitar as limitações determinadas pela organização e pela arbitragem.```",
+                "```5. Bundles\n\n" +
+                "O uso de Bundles deverá respeitar as regras e limitações estabelecidas pela liga.```\n\n" +
 
-        "```11. Mercy Rule\n\nA Mercy Rule poderá ser aplicada quando a diferença de gols atingir o limite estabelecido pela competição.```",
+                "```6. W.O / Auto-Win\n\n" +
+                "O W.O poderá ser aplicado em casos de ausência ou descumprimento das condições necessárias para realização da partida.\n\n" +
+                "6.1 A equipe deverá estar presente no horário determinado.\n\n" +
+                "6.2 A ausência injustificada poderá resultar em W.O.\n\n" +
+                "6.3 A decisão final caberá à arbitragem/staff.```\n\n" +
 
-        "```12. Handball\n\nMãos intencionais ou situações consideradas irregulares pela arbitragem poderão resultar em falta ou penalidade.```",
+                "```7. Quantidade de Jogadores\n\n" +
+                "As equipes deverão respeitar a quantidade de jogadores determinada para cada partida.```\n\n" +
 
-        "```13. Penalty Kicks\n\nCobranças de pênaltis devem ser realizadas de acordo com as regras da partida.\n\n13.1 Duplo Castigo\nO duplo castigo será aplicado quando previsto pelas regras e pela decisão da arbitragem.```",
+                "```8. Cartão Amarelo (YC)\n\n" +
+                "Cartões amarelos poderão ser aplicados pela arbitragem conforme as infrações cometidas.```\n\n" +
 
-        "```14. Space\n\nÉ proibido utilizar espaços ou posições de maneira que gere vantagem indevida ou viole as regras da partida.```",
+                "```9. Lag\n\n" +
+                "Problemas de conexão deverão ser comunicados à arbitragem. A decisão sobre paralisação ou continuidade caberá à arbitragem.```\n\n" +
 
-        "```15. Faltas\n\nFaltas devem ser marcadas de acordo com a situação ocorrida e com a interpretação da arbitragem.```",
+                "```10. Crowd\n\n" +
+                "Situações envolvendo Crowd deverão respeitar as decisões e orientações da arbitragem.```\n\n" +
 
-        "```16. Troca / Desrespeito\n\nTrocas de jogadores devem seguir o procedimento permitido. Desrespeito durante trocas poderá resultar em punição.```",
+                "```11. Mercy Rule\n\n" +
+                "A Mercy Rule poderá ser aplicada conforme as condições estabelecidas para a partida.```\n\n" +
 
-        "```17. Atraso de Jogo\n\nAtrasar propositalmente o andamento da partida poderá resultar em punição.```",
+                "```12. Handball\n\n" +
+                "Infrações de Handball poderão ser marcadas pela arbitragem conforme a situação da jogada.```\n\n" +
 
-        "```18. Conduta com a Arbitragem\n\nTodos os jogadores e managers devem respeitar os árbitros. Discussões excessivas ou desrespeito poderão resultar em punição.```",
+                "```13. Penalty Kicks\n\n" +
+                "Cobranças de pênaltis deverão seguir as determinações da arbitragem.\n\n" +
+                "13.1 Duplo Castigo\n\n" +
+                "Situações de Duplo Castigo serão avaliadas de acordo com a infração cometida.```\n\n" +
 
-        "```19. Exploits / Bugs\n\nÉ proibido utilizar exploits, bugs ou falhas do jogo para obter vantagem.```",
+                "```14. Space\n\n" +
+                "O uso de espaço durante as partidas deverá respeitar as regras estabelecidas pela liga.```\n\n" +
 
-        "```20. Kits e Aparência\n\nOs jogadores devem utilizar os kits e aparências permitidos pela organização.```",
+                "```15. Faltas\n\n" +
+                "Faltas serão marcadas pela arbitragem conforme a situação da partida.```\n\n" +
 
-        "```21. Comportamento Antidesportivo\n\nAtitudes consideradas antidesportivas poderão resultar em punição pela arbitragem ou administração.```",
+                "```16. Troca / Desrespeito\n\n" +
+                "Trocas e situações de desrespeito deverão seguir as orientações da arbitragem e da staff.```\n\n" +
 
-        "```22. Regra Geral da Arbitragem\n\nAs decisões da arbitragem durante a partida devem ser respeitadas. Casos não previstos serão analisados pela arbitragem e pela administração.```"
+                "```17. Atraso de Jogo\n\n" +
+                "É proibido causar atrasos desnecessários no andamento da partida.```\n\n" +
 
-    ];
+                "```18. Conduta com a Arbitragem\n\n" +
+                "Todos os jogadores e managers devem manter respeito com a arbitragem.```\n\n" +
 
-    return regras;
+                "```19. Exploits / Bugs\n\n" +
+                "É proibido utilizar exploits, bugs ou falhas do jogo para obter vantagem.```\n\n" +
 
+                "```20. Kits e Aparência\n\n" +
+                "Os jogadores deverão utilizar kits e aparências permitidos pela organização.```\n\n" +
+
+                "```21. Comportamento Antidesportivo\n\n" +
+                "Qualquer comportamento antidesportivo poderá ser punido pela arbitragem ou pela staff.```\n\n" +
+
+                "```22. Regra Geral da Arbitragem\n\n" +
+                "As decisões da arbitragem durante a partida deverão ser respeitadas.```\n\n"
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "# 📜 Disposições Finais\n\n" +
+
+                "> O desconhecimento das regras não isenta nenhum jogador ou equipe de suas responsabilidades.\n\n" +
+
+                "> As regras poderão ser atualizadas pela administração da **VIRTUAL TCS LEAGUE** sempre que necessário.\n\n" +
+
+                "> Todos os jogadores, managers e equipes são responsáveis por conhecer e respeitar este Rulebook antes do início de suas partidas."
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "-# © 2026 VTL • VIRTUAL TCS LEAGUE"
+            )
+    );
+
+    return container;
 }
 
 // ======================================================
@@ -320,358 +246,218 @@ function criarRegrasJogo() {
 
 function criarDisposicoesFinais() {
 
-    const container =
-        new ContainerBuilder();
+    const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
-
         new TextDisplayBuilder()
             .setContent(
-                "## 📌 | DISPOSIÇÕES FINAIS"
+                "# 📜 Disposições Finais\n\n" +
+                "> O desconhecimento das regras não isenta nenhum jogador ou equipe de suas responsabilidades.\n\n" +
+                "> As regras poderão ser atualizadas pela administração da **VIRTUAL TCS LEAGUE** sempre que necessário.\n\n" +
+                "> Todos os jogadores, managers e equipes são responsáveis por conhecer e respeitar este Rulebook antes do início de suas partidas."
             )
-
-    );
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "```O desconhecimento das regras não isenta nenhum jogador ou equipe de suas responsabilidades.```"
-            )
-
-    );
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "```As regras poderão ser atualizadas pela administração da ULTIMATE TCS LEAGUE sempre que necessário.```"
-            )
-
-    );
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "```Todos os jogadores, managers e equipes são responsáveis por conhecer e respeitar este Rulebook antes do início de suas partidas.```"
-            )
-
-    );
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder()
-    );
-
-    container.addTextDisplayComponents(
-
-        new TextDisplayBuilder()
-            .setContent(
-                "-# VTL • Virtual Tcs League"
-            )
-
     );
 
     return container;
 }
 
 // ======================================================
+// PAINEL PRINCIPAL
+// ======================================================
+
+function criarPainelRules() {
+
+    const container = new ContainerBuilder();
+
+    container.addMediaGalleryComponents(
+        new MediaGalleryBuilder()
+            .addItems(
+                new MediaGalleryItemBuilder()
+                    .setURL(RULES_IMAGE_URL)
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "# 📖 Regras da VTL\n\n" +
+                "Selecione abaixo qual conjunto de regras deseja visualizar."
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    const menu =
+        new StringSelectMenuBuilder()
+            .setCustomId("rules_select")
+            .setPlaceholder(
+                "Selecione uma categoria de regras"
+            )
+            .addOptions(
+                {
+                    label: "Regras gerais",
+                    description: "Regras gerais da comunidade",
+                    value: "2fed7d987004446bf22558e9d1e74a1e",
+                    emoji: "🚨"
+                },
+                {
+                    label: "Regras no jogo",
+                    description: "Regras para as partidas",
+                    value: "e82011c4280f4009b35b314a2ff33bb4",
+                    emoji: "⚽"
+                }
+            );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "## 📋 Categorias"
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "🚨 **Regras gerais**\n" +
+                "Informações e regras gerais da comunidade.\n\n" +
+                "⚽ **Regras no jogo**\n" +
+                "Regras aplicáveis às partidas."
+            )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addActionRowComponents(
+        new ActionRowBuilder()
+            .addComponents(menu)
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder()
+            .setContent(
+                "-# © 2026 VTL · Ao entrar você concorda com todas as regras."
+            )
+    );
+
+    return container;
+}
+
+// ======================================================
+// PROCESSAR SELECT MENU
+// ======================================================
+
+async function processarRules(interaction) {
+
+    if (
+        !interaction.isStringSelectMenu() ||
+        interaction.customId !== "rules_select"
+    ) {
+        return false;
+    }
+
+    const valor =
+        interaction.values[0];
+
+    // ================================================
+    // REGRAS GERAIS
+    // ================================================
+
+    if (
+        valor ===
+        "2fed7d987004446bf22558e9d1e74a1e"
+    ) {
+
+        await interaction.reply({
+            components: [
+                criarRegrasGerais()
+            ],
+            flags:
+                MessageFlags.IsComponentsV2 |
+                MessageFlags.Ephemeral
+        });
+
+        return true;
+    }
+
+    // ================================================
+    // REGRAS NO JOGO
+    // ================================================
+
+    if (
+        valor ===
+        "e82011c4280f4009b35b314a2ff33bb4"
+    ) {
+
+        await interaction.reply({
+            components: [
+                criarRegrasJogo()
+            ],
+            flags:
+                MessageFlags.IsComponentsV2 |
+                MessageFlags.Ephemeral
+        });
+
+        return true;
+    }
+
+    return false;
+}
+
+// ======================================================
 // EXECUTAR /RULES
 // ======================================================
 
-async function executarRules(interaction) {
+rulesCommand.execute = async interaction => {
 
     if (
         interaction.channelId !==
         RULES_CHANNEL_ID
     ) {
 
-        return interaction.reply({
-
+        await interaction.reply({
             content:
-                `❌ O comando /rules só pode ser usado em <#${RULES_CHANNEL_ID}>.`,
-
-            flags:
-                MessageFlags.Ephemeral
-
+                `❌ O comando \`/rules\` só pode ser usado em <#${RULES_CHANNEL_ID}>.`,
+            ephemeral: true
         });
 
+        return;
     }
 
-    await interaction.channel.send({
-
+    await interaction.reply({
         components: [
             criarPainelRules()
         ],
-
         flags:
             MessageFlags.IsComponentsV2
-
     });
 
-    return interaction.reply({
-
-        content:
-            "✅ Painel de regras enviado!",
-
-        flags:
-            MessageFlags.Ephemeral
-
-    });
-
-}
-
-// ======================================================
-// PROCESSAR MENU DE REGRAS
-// ======================================================
-
-async function processarRules(interaction) {
-
-    if (
-        !interaction.isStringSelectMenu()
-    ) {
-
-        return false;
-
-    }
-
-    if (
-        interaction.customId !==
-        "rules_select"
-    ) {
-
-        return false;
-
-    }
-
-    const escolha =
-        interaction.values[0];
-
-    // ==================================================
-    // REGRAS GERAIS
-    // ==================================================
-
-    if (
-        escolha ===
-        "general_rules"
-    ) {
-
-        return interaction.reply({
-
-            components: [
-                criarRegrasGerais()
-            ],
-
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
-
-        });
-
-    }
-
-    // ==================================================
-    // REGRAS NO JOGO
-    // ==================================================
-
-    if (
-        escolha ===
-        "game_rules"
-    ) {
-
-        const regras =
-            criarRegrasJogo();
-
-        const primeiraParte =
-            new ContainerBuilder();
-
-        primeiraParte.addTextDisplayComponents(
-
-            new TextDisplayBuilder()
-                .setContent(
-                    "## ⚽・REGRAS NO JOGO"
-                )
-
-        );
-
-        primeiraParte.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // REGRAS 1 ATÉ 7
-
-        for (
-            let i = 0;
-            i < 7;
-            i++
-        ) {
-
-            primeiraParte.addTextDisplayComponents(
-
-                new TextDisplayBuilder()
-                    .setContent(
-                        regras[i]
-                    )
-
-            );
-
-        }
-
-        const segundaParte =
-            new ContainerBuilder();
-
-        segundaParte.addTextDisplayComponents(
-
-            new TextDisplayBuilder()
-                .setContent(
-                    "## ⚽・REGRAS NO JOGO"
-                )
-
-        );
-
-        segundaParte.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // REGRAS 8 ATÉ 15
-
-        for (
-            let i = 7;
-            i < 15;
-            i++
-        ) {
-
-            segundaParte.addTextDisplayComponents(
-
-                new TextDisplayBuilder()
-                    .setContent(
-                        regras[i]
-                    )
-
-            );
-
-        }
-
-        const terceiraParte =
-            new ContainerBuilder();
-
-        terceiraParte.addTextDisplayComponents(
-
-            new TextDisplayBuilder()
-                .setContent(
-                    "## ⚽・REGRAS NO JOGO"
-                )
-
-        );
-
-        terceiraParte.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // REGRAS 16 ATÉ 22
-
-        for (
-            let i = 15;
-            i < regras.length;
-            i++
-        ) {
-
-            terceiraParte.addTextDisplayComponents(
-
-                new TextDisplayBuilder()
-                    .setContent(
-                        regras[i]
-                    )
-
-            );
-
-        }
-
-        terceiraParte.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        terceiraParte.addTextDisplayComponents(
-
-            new TextDisplayBuilder()
-                .setContent(
-                    "-# VTL • Virtual Tcs League"
-                )
-
-        );
-
-        await interaction.reply({
-
-            components: [
-                primeiraParte
-            ],
-
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
-
-        });
-
-        await interaction.followUp({
-
-            components: [
-                segundaParte
-            ],
-
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
-
-        });
-
-        await interaction.followUp({
-
-            components: [
-                terceiraParte,
-                criarDisposicoesFinais()
-            ],
-
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
-
-        });
-
-        return true;
-
-    }
-
-    return false;
-
-}
-
-// ======================================================
-// EXECUTE
-// ======================================================
-
-rulesCommand.execute =
-    executarRules;
+};
 
 // ======================================================
 // EXPORTS
 // ======================================================
 
 module.exports = {
-
     rulesCommand,
-
     processarRules,
-
     criarPainelRules,
-
     criarRegrasGerais,
-
     criarRegrasJogo,
-
     criarDisposicoesFinais
-
 };

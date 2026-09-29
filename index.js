@@ -2,7 +2,15 @@ const {
     Client,
     GatewayIntentBits,
     REST,
-    Routes
+    Routes,
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    SectionBuilder,
+    ThumbnailBuilder,
+    MediaGalleryBuilder,
+    MediaGalleryItemBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const http = require("http");
@@ -35,6 +43,16 @@ const {
     scoutingCommand,
     processarScouting
 } = require("./scouting");
+
+// ======================================================
+// CONFIGURAÇÃO
+// ======================================================
+
+const WELCOME_CHANNEL_ID =
+    "1552633149123596308";
+
+const WELCOME_IMAGE_URL =
+    "https://plain-enam-prod-public.komododecks.com/202609/29/F3Bzfcvoph52mKCch3Wi/image.png";
 
 // ======================================================
 // CLIENT
@@ -137,6 +155,200 @@ async function registrarComandos() {
     }
 
 }
+
+// ======================================================
+// BOAS-VINDAS
+// ======================================================
+
+client.on(
+    "guildMemberAdd",
+    async member => {
+
+        try {
+
+            const canal =
+                member.guild.channels.cache.get(
+                    WELCOME_CHANNEL_ID
+                );
+
+            if (!canal) {
+
+                console.error(
+                    "❌ Canal de boas-vindas não encontrado."
+                );
+
+                return;
+            }
+
+            // ==================================================
+            // TIMESTAMPS
+            // ==================================================
+
+            const contaCriada =
+                Math.floor(
+                    member.user.createdTimestamp / 1000
+                );
+
+            const entrou =
+                Math.floor(
+                    member.joinedTimestamp / 1000
+                );
+
+            // ==================================================
+            // CONTAINER
+            // ==================================================
+
+            const container =
+                new ContainerBuilder();
+
+            // ==================================================
+            // IMAGEM DE WELCOME
+            // ==================================================
+
+            container.addMediaGalleryComponents(
+
+                new MediaGalleryBuilder()
+                    .addItems(
+
+                        new MediaGalleryItemBuilder()
+                            .setURL(
+                                WELCOME_IMAGE_URL
+                            )
+
+                    )
+
+            );
+
+            // ==================================================
+            // SEPARADOR
+            // ==================================================
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            // ==================================================
+            // TÍTULO
+            // ==================================================
+
+            container.addTextDisplayComponents(
+
+                new TextDisplayBuilder()
+                    .setContent(
+                        "# 👋 Bem-vindo(a) à VTL"
+                    )
+
+            );
+
+            // ==================================================
+            // USUÁRIO + ID + DATAS + AVATAR
+            // ==================================================
+
+            container.addSectionComponents(
+
+                new SectionBuilder()
+
+                    .addTextDisplayComponents(
+
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `${member}\n` +
+                                `**ID:** ${member.user.id}\n` +
+                                `**Conta criada:** <t:${contaCriada}:R>\n` +
+                                `**Entrou:** <t:${entrou}:F>`
+                            )
+
+                    )
+
+                    .setThumbnailAccessory(
+
+                        new ThumbnailBuilder()
+                            .setURL(
+                                member.user.displayAvatarURL({
+                                    extension: "png",
+                                    size: 256
+                                })
+                            )
+
+                    )
+
+            );
+
+            // ==================================================
+            // SEPARADOR
+            // ==================================================
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            // ==================================================
+            // TEXTO
+            // ==================================================
+
+            container.addTextDisplayComponents(
+
+                new TextDisplayBuilder()
+                    .setContent(
+                        "Você acabou de entrar na VTL. Antes de usar os canais, faça a verificação e leia as informações principais.\n\n" +
+                        `> 🚫 <#1552633537939898469>\n` +
+                        `> ✅ <#1552648477635248169>\n` +
+                        `> 🎟️ <#1552649548420087909>`
+                    )
+
+            );
+
+            // ==================================================
+            // SEPARADOR
+            // ==================================================
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            // ==================================================
+            // FOOTER
+            // ==================================================
+
+            container.addTextDisplayComponents(
+
+                new TextDisplayBuilder()
+                    .setContent(
+                        "-# VTL • Virtual Tcs League"
+                    )
+
+            );
+
+            // ==================================================
+            // ENVIAR
+            // ==================================================
+
+            await canal.send({
+
+                components: [
+                    container
+                ],
+
+                flags:
+                    MessageFlags.IsComponentsV2
+
+            });
+
+            console.log(
+                `👋 Boas-vindas enviadas para ${member.user.tag}`
+            );
+
+        } catch (error) {
+
+            console.error(
+                "❌ Erro ao enviar boas-vindas:",
+                error
+            );
+
+        }
+
+    }
+);
 
 // ======================================================
 // BOT PRONTO

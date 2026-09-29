@@ -141,12 +141,16 @@ async function processarScouting(
             )
     );
 
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
+
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
     // ==================================================
-    // JOGADOR
+    // USUÁRIO + ID + AVATAR
     // ==================================================
 
     container.addSectionComponents(
@@ -169,12 +173,16 @@ async function processarScouting(
             )
     );
 
+    // ==================================================
+    // SEPARADOR
+    // ==================================================
+
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
     // ==================================================
-    // BLOCO
+    // DESCRIÇÃO
     // ==================================================
 
     container.addTextDisplayComponents(
@@ -185,6 +193,10 @@ async function processarScouting(
                 "\n```"
             )
     );
+
+    // ==================================================
+    // SEPARADOR FINAL
+    // ==================================================
 
     container.addSeparatorComponents(
         new SeparatorBuilder()
@@ -220,7 +232,7 @@ async function processarScouting(
 
     return interaction.reply({
         content:
-            `✅ Seu Scouting foi enviado em <#${SCOUTING_CHANNEL_ID}>.`,
+            `✅ Seu jogador foi enviado para o Scouting em <#${SCOUTING_CHANNEL_ID}>.`,
 
         flags:
             MessageFlags.Ephemeral

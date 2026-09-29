@@ -16,10 +16,18 @@ const {
 const http = require("http");
 const config = require("./config");
 
+// ======================================================
+// TICKET
+// ======================================================
+
 const {
     ticketCommand,
     handleTicketInteraction
 } = require("./ticket");
+
+// ======================================================
+// CONTRACT
+// ======================================================
 
 const {
     permCommand,
@@ -34,15 +42,32 @@ const {
     processarBotaoContrato
 } = require("./contract");
 
+// ======================================================
+// FREE AGENCY
+// ======================================================
+
 const {
     freeagencyCommand,
     processarFreeAgency
 } = require("./freeagency");
 
+// ======================================================
+// SCOUTING
+// ======================================================
+
 const {
     scoutingCommand,
     processarScouting
 } = require("./scouting");
+
+// ======================================================
+// RULES
+// ======================================================
+
+const {
+    rulesCommand,
+    processarRules
+} = require("./rules");
 
 // ======================================================
 // CONFIGURAÇÃO
@@ -59,11 +84,17 @@ const WELCOME_IMAGE_URL =
 // ======================================================
 
 const client = new Client({
+
     intents: [
+
         GatewayIntentBits.Guilds,
+
         GatewayIntentBits.GuildMembers,
+
         GatewayIntentBits.DirectMessages
+
     ]
+
 });
 
 // ======================================================
@@ -71,6 +102,8 @@ const client = new Client({
 // ======================================================
 
 const commands = [
+
+    // TICKET
     ticketCommand,
 
     // FREE AGENCY
@@ -78,6 +111,9 @@ const commands = [
 
     // SCOUTING
     scoutingCommand,
+
+    // RULES
+    rulesCommand,
 
     // CONTRATOS / TIMES
     permCommand,
@@ -89,32 +125,47 @@ const commands = [
     excluirTimeCommand,
     autoreleaseCommand
 
-].map(command => command.toJSON());
+].map(
+    command => command.toJSON()
+);
 
 // ======================================================
 // SERVIDOR HTTP
 // NECESSÁRIO PARA O RENDER
 // ======================================================
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
+const server =
+    http.createServer(
+        (req, res) => {
 
-    res.writeHead(200, {
-        "Content-Type": "text/plain; charset=utf-8"
-    });
+            res.writeHead(
+                200,
+                {
+                    "Content-Type":
+                        "text/plain; charset=utf-8"
+                }
+            );
 
-    res.end("VTL Bot online!");
+            res.end(
+                "VTL Bot online!"
+            );
 
-});
-
-server.listen(PORT, () => {
-
-    console.log(
-        `🌐 Servidor HTTP online na porta ${PORT}`
+        }
     );
 
-});
+server.listen(
+    PORT,
+    () => {
+
+        console.log(
+            `🌐 Servidor HTTP online na porta ${PORT}`
+        );
+
+    }
+);
 
 // ======================================================
 // REGISTRAR SLASH COMMANDS
@@ -124,21 +175,27 @@ async function registrarComandos() {
 
     try {
 
-        const rest = new REST({
-            version: "10"
-        }).setToken(config.TOKEN);
+        const rest =
+            new REST({
+                version: "10"
+            }).setToken(
+                config.TOKEN
+            );
 
         console.log(
             "🔄 Registrando comandos..."
         );
 
         await rest.put(
+
             Routes.applicationCommands(
                 client.user.id
             ),
+
             {
                 body: commands
             }
+
         );
 
         console.log(
@@ -178,6 +235,7 @@ client.on(
                 );
 
                 return;
+
             }
 
             // ==================================================
@@ -202,12 +260,13 @@ client.on(
                 new ContainerBuilder();
 
             // ==================================================
-            // IMAGEM DE WELCOME
+            // IMAGEM
             // ==================================================
 
             container.addMediaGalleryComponents(
 
                 new MediaGalleryBuilder()
+
                     .addItems(
 
                         new MediaGalleryItemBuilder()
@@ -241,7 +300,7 @@ client.on(
             );
 
             // ==================================================
-            // USUÁRIO + ID + DATAS + AVATAR
+            // USUÁRIO / ID / DATAS / AVATAR
             // ==================================================
 
             container.addSectionComponents(
@@ -252,10 +311,15 @@ client.on(
 
                         new TextDisplayBuilder()
                             .setContent(
+
                                 `${member}\n` +
+
                                 `**ID:** ${member.user.id}\n` +
+
                                 `**Conta criada:** <t:${contaCriada}:R>\n` +
+
                                 `**Entrou:** <t:${entrou}:F>`
+
                             )
 
                     )
@@ -264,10 +328,12 @@ client.on(
 
                         new ThumbnailBuilder()
                             .setURL(
+
                                 member.user.displayAvatarURL({
                                     extension: "png",
                                     size: 256
                                 })
+
                             )
 
                     )
@@ -290,10 +356,15 @@ client.on(
 
                 new TextDisplayBuilder()
                     .setContent(
+
                         "Você acabou de entrar na VTL. Antes de usar os canais, faça a verificação e leia as informações principais.\n\n" +
+
                         `> 🚫 <#1552633537939898469>\n` +
+
                         `> ✅ <#1552648477635248169>\n` +
+
                         `> 🎟️ <#1552649548420087909>`
+
                     )
 
             );
@@ -401,7 +472,9 @@ client.on(
             // BOTÕES DE CONTRATO
             // ==========================================
 
-            if (interaction.isButton()) {
+            if (
+                interaction.isButton()
+            ) {
 
                 const processado =
                     await processarBotaoContrato(
@@ -409,7 +482,9 @@ client.on(
                     );
 
                 if (processado) {
+
                     return;
+
                 }
 
             }
@@ -419,9 +494,12 @@ client.on(
             // ==========================================
 
             if (
+
                 interaction.isModalSubmit() &&
+
                 interaction.customId ===
                     "modal_freeagency"
+
             ) {
 
                 const processado =
@@ -430,7 +508,9 @@ client.on(
                     );
 
                 if (processado) {
+
                     return;
+
                 }
 
             }
@@ -440,9 +520,12 @@ client.on(
             // ==========================================
 
             if (
+
                 interaction.isModalSubmit() &&
+
                 interaction.customId ===
                     "modal_scouting"
+
             ) {
 
                 const processado =
@@ -451,7 +534,35 @@ client.on(
                     );
 
                 if (processado) {
+
                     return;
+
+                }
+
+            }
+
+            // ==========================================
+            // RULES
+            // ==========================================
+
+            if (
+
+                interaction.isStringSelectMenu() &&
+
+                interaction.customId ===
+                    "rules_select"
+
+            ) {
+
+                const processado =
+                    await processarRules(
+                        interaction
+                    );
+
+                if (processado) {
+
+                    return;
+
                 }
 
             }
@@ -461,9 +572,13 @@ client.on(
             // ==========================================
 
             if (
+
                 interaction.isStringSelectMenu() ||
+
                 interaction.isButton() ||
+
                 interaction.isModalSubmit()
+
             ) {
 
                 const processado =
@@ -472,7 +587,9 @@ client.on(
                     );
 
                 if (processado) {
+
                     return;
+
                 }
 
             }
@@ -534,10 +651,27 @@ client.on(
                 }
 
                 // --------------------------------------
+                // RULES
+                // --------------------------------------
+
+                if (
+                    interaction.commandName ===
+                    "rules"
+                ) {
+
+                    return await
+                        rulesCommand.execute(
+                            interaction
+                        );
+
+                }
+
+                // --------------------------------------
                 // CONTRATOS / TIMES
                 // --------------------------------------
 
                 if (
+
                     interaction.commandName ===
                         "perm" ||
 
@@ -561,6 +695,7 @@ client.on(
 
                     interaction.commandName ===
                         "autorelease"
+
                 ) {
 
                     return await
@@ -582,8 +717,11 @@ client.on(
             try {
 
                 if (
+
                     interaction.replied ||
+
                     interaction.deferred
+
                 ) {
 
                     await interaction.followUp({
@@ -611,7 +749,7 @@ client.on(
             } catch (replyError) {
 
                 console.error(
-                    "❌ Não foi possível enviar a mensagem de erro:",
+                    "❌ Não foi possível responder à interação:",
                     replyError
                 );
 
@@ -718,6 +856,7 @@ console.log(
 client.login(
     config.TOKEN
 )
+
     .then(() => {
 
         console.log(
@@ -725,6 +864,7 @@ client.login(
         );
 
     })
+
     .catch(error => {
 
         console.error(

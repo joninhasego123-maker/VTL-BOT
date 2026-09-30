@@ -26,7 +26,7 @@ const RULES_IMAGE_URL =
 const rulesCommand = new SlashCommandBuilder()
     .setName("rules")
     .setDescription("Envia o painel de regras da VTL.")
-    .setDefaultMemberPermissions("Administrator");
+    .setDefaultMemberPermissions("8");
 
 // ======================================================
 // REGRAS GERAIS
@@ -124,8 +124,8 @@ function criarRegrasJogo() {
                 "4.2 Humanoid\n\n" +
                 "Situações envolvendo Humanoid deverão seguir a decisão da arbitragem.```\n\n" +
 
-                "```5. Bundles\n\n" +
-                "O uso de Bundles deverá respeitar as regras e limitações estabelecidas pela liga.```\n\n" +
+                "```5. Chars\n\n" +
+                "O uso de Chars com korblox ou algo do tipo é proibido pela liga.```\n\n" +
 
                 "```6. W.O / Auto-Win\n\n" +
                 "O W.O poderá ser aplicado em casos de ausência ou descumprimento das condições necessárias para realização da partida.\n\n" +
@@ -387,6 +387,28 @@ async function processarRules(interaction) {
 // ======================================================
 
 rulesCommand.execute = async interaction => {
+
+    // ==================================================
+    // PROTEÇÃO CONTRA NÃO-ADMINISTRADORES
+    // ==================================================
+
+    if (
+        !interaction.memberPermissions ||
+        !interaction.memberPermissions.has("Administrator")
+    ) {
+
+        await interaction.reply({
+            content:
+                "❌ Você precisa ter **Administrador** para usar este comando.",
+            ephemeral: true
+        });
+
+        return;
+    }
+
+    // ==================================================
+    // ENVIO DO PAINEL
+    // ==================================================
 
     try {
 

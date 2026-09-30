@@ -70,6 +70,16 @@ const {
 } = require("./rules");
 
 // ======================================================
+// SHOUTS
+// ======================================================
+
+const {
+    shoutsCommand,
+    executarShouts,
+    processarShouts
+} = require("./shouts");
+
+// ======================================================
 // CONFIGURAÇÃO
 // ======================================================
 
@@ -114,6 +124,9 @@ const commands = [
 
     // RULES
     rulesCommand,
+
+    // SHOUTS
+    shoutsCommand,
 
     // CONTRATOS / TIMES
     permCommand,
@@ -467,6 +480,51 @@ client.on(
     async interaction => {
 
         try {
+
+            // ==========================================
+            // SHOUTS - COMANDO
+            // ==========================================
+
+            if (
+
+                interaction.isChatInputCommand() &&
+
+                interaction.commandName ===
+                    "shouts"
+
+            ) {
+
+                return await executarShouts(
+                    interaction
+                );
+
+            }
+
+            // ==========================================
+            // SHOUTS - MODAL
+            // ==========================================
+
+            if (
+
+                interaction.isModalSubmit() &&
+
+                interaction.customId ===
+                    "modal_shouts"
+
+            ) {
+
+                const processado =
+                    await processarShouts(
+                        interaction
+                    );
+
+                if (processado) {
+
+                    return;
+
+                }
+
+            }
 
             // ==========================================
             // BOTÕES DE CONTRATO

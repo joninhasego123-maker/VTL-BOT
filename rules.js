@@ -25,7 +25,8 @@ const RULES_IMAGE_URL =
 
 const rulesCommand = new SlashCommandBuilder()
     .setName("rules")
-    .setDescription("Envia o painel de regras da VTL.");
+    .setDescription("Envia o painel de regras da VTL.")
+    .setDefaultMemberPermissions("Administrator");
 
 // ======================================================
 // REGRAS GERAIS

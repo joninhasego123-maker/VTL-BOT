@@ -1,3 +1,4 @@
+
 const {
     SlashCommandBuilder,
     ContainerBuilder,
@@ -7,6 +8,8 @@ const {
     MediaGalleryItemBuilder,
     StringSelectMenuBuilder,
     ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
     MessageFlags
 } = require("discord.js");
 
@@ -33,7 +36,6 @@ const rulesCommand = new SlashCommandBuilder()
 // ======================================================
 
 function criarRegrasGerais() {
-
     const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
@@ -85,7 +87,6 @@ function criarRegrasGerais() {
 // ======================================================
 
 function criarRegrasJogo() {
-
     const container = new ContainerBuilder();
 
     container.addMediaGalleryComponents(
@@ -217,7 +218,6 @@ function criarRegrasJogo() {
 // ======================================================
 
 function criarDisposicoesFinais() {
-
     const container = new ContainerBuilder();
 
     container.addTextDisplayComponents(
@@ -241,7 +241,6 @@ function criarDisposicoesFinais() {
 // ======================================================
 
 function criarPainelRules() {
-
     const container = new ContainerBuilder();
 
     container.addMediaGalleryComponents(
@@ -288,26 +287,40 @@ function criarPainelRules() {
             )
     );
 
+    // ==================================================
+    // BOTÃO DE LINK — STJD
+    // ==================================================
+
+    container.addActionRowComponents(
+        new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setLabel("STJD")
+                    .setEmoji("🛠")
+                    .setStyle(ButtonStyle.Link)
+                    .setURL("https://discord.gg/CMV3xQyMkQ")
+            )
+    );
+
     container.addSeparatorComponents(
         new SeparatorBuilder()
     );
 
-    const menu =
-        new StringSelectMenuBuilder()
-            .setCustomId("rules_select")
-            .setPlaceholder("Selecione uma categoria")
-            .addOptions(
-                {
-                    label: "Regras gerais",
-                    value: "2fed7d987004446bf22558e9d1e74a1e",
-                    emoji: "🚨"
-                },
-                {
-                    label: "Regras no jogo",
-                    value: "e82011c4280f4009b35b314a2ff33bb4",
-                    emoji: "⚽"
-                }
-            );
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId("rules_select")
+        .setPlaceholder("Selecione uma categoria")
+        .addOptions(
+            {
+                label: "Regras gerais",
+                value: "2fed7d987004446bf22558e9d1e74a1e",
+                emoji: "🚨"
+            },
+            {
+                label: "Regras no jogo",
+                value: "e82011c4280f4009b35b314a2ff33bb4",
+                emoji: "⚽"
+            }
+        );
 
     container.addActionRowComponents(
         new ActionRowBuilder()
@@ -333,7 +346,6 @@ function criarPainelRules() {
 // ======================================================
 
 async function processarRules(interaction) {
-
     if (
         !interaction.isStringSelectMenu() ||
         interaction.customId !== "rules_select"
@@ -344,11 +356,7 @@ async function processarRules(interaction) {
     const valor = interaction.values[0];
 
     // REGRAS GERAIS
-    if (
-        valor ===
-        "2fed7d987004446bf22558e9d1e74a1e"
-    ) {
-
+    if (valor === "2fed7d987004446bf22558e9d1e74a1e") {
         await interaction.reply({
             components: [
                 criarRegrasGerais()
@@ -362,11 +370,7 @@ async function processarRules(interaction) {
     }
 
     // REGRAS NO JOGO
-    if (
-        valor ===
-        "e82011c4280f4009b35b314a2ff33bb4"
-    ) {
-
+    if (valor === "e82011c4280f4009b35b314a2ff33bb4") {
         await interaction.reply({
             components: [
                 criarRegrasJogo()
@@ -387,16 +391,11 @@ async function processarRules(interaction) {
 // ======================================================
 
 rulesCommand.execute = async interaction => {
-
-    // ==================================================
     // PROTEÇÃO CONTRA NÃO-ADMINISTRADORES
-    // ==================================================
-
     if (
         !interaction.memberPermissions ||
         !interaction.memberPermissions.has("Administrator")
     ) {
-
         await interaction.reply({
             content:
                 "❌ Você precisa ter **Administrador** para usar este comando.",
@@ -406,19 +405,14 @@ rulesCommand.execute = async interaction => {
         return;
     }
 
-    // ==================================================
     // ENVIO DO PAINEL
-    // ==================================================
-
     try {
-
         const canalRules =
             await interaction.client.channels.fetch(
                 RULES_CHANNEL_ID
             );
 
         if (!canalRules) {
-
             await interaction.reply({
                 content:
                     "❌ Não foi possível encontrar o canal de regras.",
@@ -443,7 +437,6 @@ rulesCommand.execute = async interaction => {
         });
 
     } catch (error) {
-
         console.error(
             "❌ Erro ao enviar painel de regras:",
             error
@@ -453,21 +446,17 @@ rulesCommand.execute = async interaction => {
             interaction.replied ||
             interaction.deferred
         ) {
-
             await interaction.followUp({
                 content:
                     "❌ Não foi possível enviar o painel de regras.",
                 ephemeral: true
             });
-
         } else {
-
             await interaction.reply({
                 content:
                     "❌ Não foi possível enviar o painel de regras.",
                 ephemeral: true
             });
-
         }
     }
 };

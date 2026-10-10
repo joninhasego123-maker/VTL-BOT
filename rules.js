@@ -25,7 +25,7 @@ const RULES_IMAGE_URL =
 
 const rulesCommand = new SlashCommandBuilder()
     .setName("rules")
-    .setDescription("Envia o painel de regras da VTL.")
+    .setDescription("Envia o painel de regras da PML.")
     .setDefaultMemberPermissions("8");
 
 // ======================================================
@@ -321,7 +321,7 @@ function criarPainelRules() {
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
             .setContent(
-                "-# © 2026 VTL · Ao entrar você concorda com todas as regras."
+                "-# © 2026 PML · Ao entrar você concorda com todas as regras."
             )
     );
 

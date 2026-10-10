@@ -759,8 +759,8 @@ async function handleTicketInteraction(interaction) {
         });
     }
 
-    // ==================================================
-    // CONFIRMAR FECHAMENTO
+        // ==================================================
+    // CONFIRMAR FECHAMENTO — CONTAGEM REGRESSIVA
     // ==================================================
 
     if (
@@ -775,10 +775,9 @@ async function handleTicketInteraction(interaction) {
             });
         }
 
-        if (
-            !interaction.channel ||
-            !interaction.channel.deletable
-        ) {
+        const channel = interaction.channel;
+
+        if (!channel || !channel.deletable) {
             return interaction.reply({
                 content:
                     "❌ Não consegui fechar este canal. Verifique as permissões do bot.",
@@ -786,27 +785,54 @@ async function handleTicketInteraction(interaction) {
             });
         }
 
-        // Trocar o container da confirmação
+        // Mostra o primeiro número imediatamente
+        const criarContagem = (numero) =>
+            new ContainerBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `⚠️ | Fechando esse ticket em ${numero}...`
+                    )
+                )
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        TICKET_FOOTER
+                    )
+                );
+
         await interaction.update({
-            components: [
-                criarContainerFechando()
-            ],
-            flags: MessageFlags.IsComponentsV2
+            components: [criarContagem(3)]
         });
 
-        // Excluir o canal depois de 3 segundos
-        setTimeout(async () => {
-            try {
-                await interaction.channel.delete(
-                    "Ticket fechado pela equipe da PML"
-                );
-            } catch (error) {
-                console.error(
-                    "❌ Erro ao fechar ticket:",
-                    error
-                );
-            }
-        }, 3000);
+        // Contagem: 3 → 2 → 1
+        for (const numero of [2, 1]) {
+            await new Promise(resolve =>
+                setTimeout(resolve, 1000)
+            );
+
+            await interaction.editReply({
+                components: [criarContagem(numero)]
+            });
+        }
+
+        // Aguarda um segundo depois do número 1
+        await new Promise(resolve =>
+            setTimeout(resolve, 1000)
+        );
+
+        // Exclui o canal
+        try {
+            await channel.delete(
+                "Ticket fechado pela equipe da PML"
+            );
+        } catch (error) {
+            console.error(
+                "❌ Erro ao fechar ticket:",
+                error
+            );
+        }
 
         return true;
     }

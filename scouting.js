@@ -209,7 +209,7 @@ async function processarScouting(
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
             .setContent(
-                "-# VTL - SCOUTING"
+                "-# PML • SCOUTING"
             )
     );
 

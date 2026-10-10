@@ -234,7 +234,7 @@ function criarContratoContainer({
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
             .setContent(
-                "-# VTL - CONTRACT SYSTEM"
+                "-# PML • CONTRACT SYSTEM"
             )
     );
 
@@ -492,7 +492,7 @@ const excluirTimeCommand =
     new SlashCommandBuilder()
         .setName("excluirtime")
         .setDescription(
-            "Exclui um time cadastrado na VTL."
+            "Exclui um time cadastrado na PML."
         )
         .addRoleOption(option =>
             option
@@ -1039,7 +1039,7 @@ async function executarComando(interaction) {
 
             return interaction.reply({
                 content:
-                    "❌ Esse cargo não está cadastrado como um time da VTL.",
+                    "❌ Esse cargo não está cadastrado como um time da PML.",
                 ephemeral: true
             });
 
@@ -1176,7 +1176,7 @@ async function executarComando(interaction) {
 
         return interaction.reply({
             content:
-                `✅ O time **${team.name}** foi excluído da VTL.\n` +
+                `✅ O time **${team.name}** foi excluído da PML.\n` +
                 `👥 ${contracts?.length || 0} jogador(es) foram liberados e tiveram o cargo removido.`,
             ephemeral: true
         });
@@ -1251,7 +1251,7 @@ async function executarComando(interaction) {
 
             return interaction.reply({
                 content:
-                    "❌ Esse cargo não está cadastrado como um time da VTL.\n\n" +
+                    "❌ Esse cargo não está cadastrado como um time da PML.\n\n" +
                     "Cadastre primeiro usando `/criartime`.",
                 ephemeral: true
             });
@@ -1490,7 +1490,7 @@ async function executarComando(interaction) {
             content:
                 "## 📋 MANAGERS AUTORIZADOS\n\n" +
                 lista +
-                "\n-# VTL - CONTRACT SYSTEM",
+                "\n-# PML • CONTRACT SYSTEM",
             ephemeral: true
         });
 

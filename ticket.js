@@ -129,7 +129,7 @@ function criarPainelTicket() {
                 new TextDisplayBuilder()
                     .setContent(
                         "## 🎫 Sistema de Tickets\n\n" +
-                        "Selecione uma opção abaixo para entrar em contato com a equipe da VTL."
+                        "Selecione uma opção abaixo para entrar em contato com a equipe da PML."
                     )
 
             )
@@ -262,7 +262,7 @@ function criarPainelTicket() {
 
         new TextDisplayBuilder()
             .setContent(
-                "-# VTL - TICKET SYSTEM"
+                "-# PML - TICKET SYSTEM"
             )
 
     );
@@ -432,7 +432,7 @@ function criarTicketContainer({
 
         new TextDisplayBuilder()
             .setContent(
-                "-# VTL - TICKET SYSTEM"
+                "-# PML - TICKET SYSTEM"
             )
 
     );

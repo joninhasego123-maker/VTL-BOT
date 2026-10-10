@@ -309,7 +309,7 @@ async function processarShouts(interaction) {
         container.addTextDisplayComponents(
             new TextDisplayBuilder()
                 .setContent(
-                    "-# VTL • Champions League"
+                    "-# PML • Champions League"
                 )
         );
 

@@ -307,7 +307,7 @@ client.on(
 
                 new TextDisplayBuilder()
                     .setContent(
-                        "# 👋 Bem-vindo(a) à VTL"
+                        "# 👋 Bem-vindo(a) à PML"
                     )
 
             );
@@ -398,7 +398,7 @@ client.on(
 
                 new TextDisplayBuilder()
                     .setContent(
-                        "-# VTL • Virtual Tcs League"
+                        "-# PML • Pro Mps League"
                     )
 
             );

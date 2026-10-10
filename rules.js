@@ -196,7 +196,7 @@ function criarRegrasJogo() {
 
                 "> O desconhecimento das regras não isenta nenhum jogador ou equipe de suas responsabilidades.\n\n" +
 
-                "> As regras poderão ser atualizadas pela administração da **VIRTUAL TCS LEAGUE** sempre que necessário.\n\n" +
+                "> As regras poderão ser atualizadas pela administração da **PRO MPS LEAGUE** sempre que necessário.\n\n" +
 
                 "> Todos os jogadores, managers e equipes são responsáveis por conhecer e respeitar este Rulebook antes do início de suas partidas."
             )
@@ -205,7 +205,7 @@ function criarRegrasJogo() {
     container.addTextDisplayComponents(
         new TextDisplayBuilder()
             .setContent(
-                "-# © 2026 VTL · VIRTUAL TCS LEAGUE"
+                "-# © 2026 PML · PRO MPS LEAGUE"
             )
     );
 
@@ -227,7 +227,7 @@ function criarDisposicoesFinais() {
 
                 "> O desconhecimento das regras não isenta nenhum jogador ou equipe de suas responsabilidades.\n\n" +
 
-                "> As regras poderão ser atualizadas pela administração da **VIRTUAL TCS LEAGUE** sempre que necessário.\n\n" +
+                "> As regras poderão ser atualizadas pela administração da **PRO MPS LEAGUE** sempre que necessário.\n\n" +
 
                 "> Todos os jogadores, managers e equipes são responsáveis por conhecer e respeitar este Rulebook antes do início de suas partidas."
             )

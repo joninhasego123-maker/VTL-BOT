@@ -1,3 +1,4 @@
+
 const {
     SlashCommandBuilder,
     ModalBuilder,
@@ -26,89 +27,60 @@ const config = require("./config");
 // CONFIGURAÇÕES
 // ======================================================
 
-const TICKET_CATEGORY_ID =
-    config.TICKET_CATEGORY_ID;
-
-const STAFF_ROLE_ID =
-    config.STAFF_ROLE_ID;
-
-const TICKET_PANEL_CHANNEL_ID =
-    config.TICKET_PANEL_CHANNEL_ID;
+const TICKET_CATEGORY_ID = config.TICKET_CATEGORY_ID;
+const STAFF_ROLE_ID = config.STAFF_ROLE_ID;
+const TICKET_PANEL_CHANNEL_ID = config.TICKET_PANEL_CHANNEL_ID;
 
 // ======================================================
 // IDS DOS TIPOS DE TICKET
 // ======================================================
 
-const TICKET_OWNAR =
-    "cbda69e8d47d4bfacd52cc61947715da";
-
-const TICKET_PARCERIA =
-    "fe8064d9c3434287d0595be8a7375819";
-
-const TICKET_DENUNCIA =
-    "b270250acb7e4d07fcf7da4f4bff0024";
-
-const TICKET_OUTROS =
-    "0bbd775bc3454cb48519ba583feef317";
+const TICKET_OWNAR = "cbda69e8d47d4bfacd52cc61947715da";
+const TICKET_PARCERIA = "fe8064d9c3434287d0595be8a7375819";
+const TICKET_OUTROS = "0bbd775bc3454cb48519ba583feef317";
 
 // ======================================================
 // IDS DOS BOTÕES
 // ======================================================
 
-const CLOSE_TICKET =
-    "fechar_ticket";
-
-const CONFIRM_CLOSE_TICKET =
-    "confirmar_fechar_ticket";
-
-const CANCEL_CLOSE_TICKET =
-    "cancelar_fechar_ticket";
-
-const TICKET_SELECT =
-    "ticket_tipo_select";
+const CLOSE_TICKET = "fechar_ticket";
+const CONFIRM_CLOSE_TICKET = "confirmar_fechar_ticket";
+const CANCEL_CLOSE_TICKET = "cancelar_fechar_ticket";
+const TICKET_SELECT = "ticket_tipo_select";
 
 // ======================================================
 // RODAPÉ
 // ======================================================
 
-const TICKET_FOOTER =
-    "-# PML • TICKET SYSTEM";
+const TICKET_FOOTER = "-# PML • TICKET SYSTEM";
 
 // ======================================================
 // COMANDO /TICKET
 // ======================================================
 
-const ticketCommand =
-    new SlashCommandBuilder()
-        .setName("ticket")
-        .setDescription(
-            "Envia o painel de atendimento de tickets."
-        )
-        .setDefaultMemberPermissions(
-            PermissionFlagsBits.Administrator
-        );
+const ticketCommand = new SlashCommandBuilder()
+    .setName("ticket")
+    .setDescription("Envia o painel de atendimento de tickets.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 // ======================================================
 // PAINEL DO TICKET
 // ======================================================
 
 function criarPainelTicket() {
-    const container =
-        new ContainerBuilder();
+    const container = new ContainerBuilder();
 
-    const topoPath =
-        path.join(
-            __dirname,
-            "imagens",
-            "ticket_topo.png"
-        );
+    const topoPath = path.join(
+        __dirname,
+        "imagens",
+        "ticket_topo.png"
+    );
 
-    const logoPath =
-        path.join(
-            __dirname,
-            "imagens",
-            "utl_logo.png"
-        );
+    const logoPath = path.join(
+        __dirname,
+        "imagens",
+        "utl_logo.png"
+    );
 
     // IMAGEM DO TOPO
 
@@ -116,9 +88,7 @@ function criarPainelTicket() {
         new MediaGalleryBuilder()
             .addItems(
                 new MediaGalleryItemBuilder()
-                    .setURL(
-                        "attachment://ticket_topo.png"
-                    )
+                    .setURL("attachment://ticket_topo.png")
             )
     );
 
@@ -139,9 +109,7 @@ function criarPainelTicket() {
             )
             .setThumbnailAccessory(
                 new ThumbnailBuilder()
-                    .setURL(
-                        "attachment://utl_logo.png"
-                    )
+                    .setURL("attachment://utl_logo.png")
             )
     );
 
@@ -156,7 +124,6 @@ function criarPainelTicket() {
             .setContent(
                 "⚽ **Ownar** — Solicite um time ou seleção.\n" +
                 "🤝 **Parceria** — Envie uma proposta de parceria.\n" +
-                "🚨 **Denúncia** — Envie uma denúncia com provas.\n" +
                 "📩 **Outros** — Outros assuntos."
             )
     );
@@ -167,44 +134,29 @@ function criarPainelTicket() {
 
     // MENU DE SELEÇÃO
 
-    const menu =
-        new StringSelectMenuBuilder()
-            .setCustomId(
-                TICKET_SELECT
-            )
-            .setPlaceholder(
-                "Selecione o tipo de atendimento..."
-            )
-            .addOptions(
-                {
-                    label: "Ownar",
-                    description:
-                        "Solicitar um time ou seleção.",
-                    value: TICKET_OWNAR,
-                    emoji: "⚽"
-                },
-                {
-                    label: "Parceria",
-                    description:
-                        "Enviar uma proposta de parceria.",
-                    value: TICKET_PARCERIA,
-                    emoji: "🤝"
-                },
-                {
-                    label: "Denúncia",
-                    description:
-                        "Realizar uma denúncia com provas.",
-                    value: TICKET_DENUNCIA,
-                    emoji: "🚨"
-                },
-                {
-                    label: "Outros",
-                    description:
-                        "Outros assuntos.",
-                    value: TICKET_OUTROS,
-                    emoji: "📩"
-                }
-            );
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId(TICKET_SELECT)
+        .setPlaceholder("Selecione o tipo de atendimento...")
+        .addOptions(
+            {
+                label: "Ownar",
+                description: "Solicitar um time ou seleção.",
+                value: TICKET_OWNAR,
+                emoji: "⚽"
+            },
+            {
+                label: "Parceria",
+                description: "Enviar uma proposta de parceria.",
+                value: TICKET_PARCERIA,
+                emoji: "🤝"
+            },
+            {
+                label: "Outros",
+                description: "Outros assuntos.",
+                value: TICKET_OUTROS,
+                emoji: "📩"
+            }
+        );
 
     container.addActionRowComponents(
         new ActionRowBuilder()
@@ -241,20 +193,14 @@ function criarPainelTicket() {
 // CONTAINER DO TICKET ABERTO
 // ======================================================
 
-function criarTicketContainer({
-    user,
-    tipo,
-    conteudo
-}) {
-    const container =
-        new ContainerBuilder();
+function criarTicketContainer({ user, tipo, conteudo }) {
+    const container = new ContainerBuilder();
 
-    const ticketImagePath =
-        path.join(
-            __dirname,
-            "imagens",
-            "ticket_aberto_v2.png"
-        );
+    const ticketImagePath = path.join(
+        __dirname,
+        "imagens",
+        "ticket_aberto_v2.png"
+    );
 
     // IMAGEM
 
@@ -262,9 +208,7 @@ function criarTicketContainer({
         new MediaGalleryBuilder()
             .addItems(
                 new MediaGalleryItemBuilder()
-                    .setURL(
-                        "attachment://ticket_aberto_v2.png"
-                    )
+                    .setURL("attachment://ticket_aberto_v2.png")
             )
     );
 
@@ -304,18 +248,11 @@ function criarTicketContainer({
 
     // BOTÃO FECHAR
 
-    const closeButton =
-        new ButtonBuilder()
-            .setCustomId(
-                CLOSE_TICKET
-            )
-            .setLabel(
-                "Fechar Ticket"
-            )
-            .setEmoji("🔒")
-            .setStyle(
-                ButtonStyle.Danger
-            );
+    const closeButton = new ButtonBuilder()
+        .setCustomId(CLOSE_TICKET)
+        .setLabel("Fechar Ticket")
+        .setEmoji("🔒")
+        .setStyle(ButtonStyle.Danger);
 
     container.addActionRowComponents(
         new ActionRowBuilder()
@@ -342,109 +279,87 @@ function criarTicketContainer({
 // CRIAR CANAL
 // ======================================================
 
-async function criarCanalTicket(
-    interaction,
-    tipo,
-    conteudo
-) {
-    const guild =
-        interaction.guild;
+async function criarCanalTicket(interaction, tipo, conteudo) {
+    const guild = interaction.guild;
 
     if (!guild) {
         return interaction.reply({
-            content:
-                "❌ Este sistema só pode ser usado dentro do servidor.",
+            content: "❌ Este sistema só pode ser usado dentro do servidor.",
             flags: MessageFlags.Ephemeral
         });
     }
 
     // VERIFICAR TICKET EXISTENTE
 
-    const ticketExistente =
-        guild.channels.cache.find(
-            channel =>
-                channel.parentId === TICKET_CATEGORY_ID &&
-                channel.topic ===
-                    `ticket:${interaction.user.id}`
-        );
+    const ticketExistente = guild.channels.cache.find(
+        channel =>
+            channel.parentId === TICKET_CATEGORY_ID &&
+            channel.topic === `ticket:${interaction.user.id}`
+    );
 
     if (ticketExistente) {
         return interaction.reply({
-            content:
-                `❌ Você já possui um ticket aberto: ${ticketExistente}`,
+            content: `❌ Você já possui um ticket aberto: ${ticketExistente}`,
             flags: MessageFlags.Ephemeral
         });
     }
 
     // CRIAR CANAL
 
-    const channel =
-        await guild.channels.create({
-            name:
-                `ticket-${interaction.user.username}`
-                    .toLowerCase()
-                    .replace(/[^a-z0-9-]/g, "")
-                    .slice(0, 90),
+    const channel = await guild.channels.create({
+        name: `ticket-${interaction.user.username}`
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "")
+            .slice(0, 90),
 
-            type: ChannelType.GuildText,
+        type: ChannelType.GuildText,
+        parent: TICKET_CATEGORY_ID,
+        topic: `ticket:${interaction.user.id}`,
 
-            parent: TICKET_CATEGORY_ID,
-
-            topic:
-                `ticket:${interaction.user.id}`,
-
-            permissionOverwrites: [
-                {
-                    id: guild.id,
-                    deny: [
-                        PermissionFlagsBits.ViewChannel
-                    ]
-                },
-                {
-                    id: interaction.user.id,
-                    allow: [
-                        PermissionFlagsBits.ViewChannel,
-                        PermissionFlagsBits.SendMessages,
-                        PermissionFlagsBits.ReadMessageHistory,
-                        PermissionFlagsBits.AttachFiles
-                    ]
-                },
-                {
-                    id: STAFF_ROLE_ID,
-                    allow: [
-                        PermissionFlagsBits.ViewChannel,
-                        PermissionFlagsBits.SendMessages,
-                        PermissionFlagsBits.ReadMessageHistory,
-                        PermissionFlagsBits.AttachFiles
-                    ]
-                }
-            ]
-        });
+        permissionOverwrites: [
+            {
+                id: guild.id,
+                deny: [PermissionFlagsBits.ViewChannel]
+            },
+            {
+                id: interaction.user.id,
+                allow: [
+                    PermissionFlagsBits.ViewChannel,
+                    PermissionFlagsBits.SendMessages,
+                    PermissionFlagsBits.ReadMessageHistory,
+                    PermissionFlagsBits.AttachFiles
+                ]
+            },
+            {
+                id: STAFF_ROLE_ID,
+                allow: [
+                    PermissionFlagsBits.ViewChannel,
+                    PermissionFlagsBits.SendMessages,
+                    PermissionFlagsBits.ReadMessageHistory,
+                    PermissionFlagsBits.AttachFiles
+                ]
+            }
+        ]
+    });
 
     // CRIAR CONTAINER
 
-    const ticket =
-        criarTicketContainer({
-            user: interaction.user,
-            tipo,
-            conteudo
-        });
+    const ticket = criarTicketContainer({
+        user: interaction.user,
+        tipo,
+        conteudo
+    });
 
     // ENVIAR CONTAINER
 
     try {
         await channel.send({
-            components: [
-                ticket.container
-            ],
+            components: [ticket.container],
             files: ticket.files,
             flags: MessageFlags.IsComponentsV2
         });
     } catch (error) {
-        console.error(
-            "❌ Erro ao enviar painel do ticket:",
-            error
-        );
+        console.error("❌ Erro ao enviar painel do ticket:", error);
 
         await channel.delete().catch(() => {});
 
@@ -458,8 +373,7 @@ async function criarCanalTicket(
     // RESPOSTA
 
     return interaction.reply({
-        content:
-            `✅ Seu ticket foi criado: ${channel}`,
+        content: `✅ Seu ticket foi criado: ${channel}`,
         flags: MessageFlags.Ephemeral
     });
 }
@@ -469,37 +383,27 @@ async function criarCanalTicket(
 // ======================================================
 
 function abrirModalOwnar(interaction) {
-    const modal =
-        new ModalBuilder()
-            .setCustomId(
-                "modal_ticket_ownar"
-            )
-            .setTitle("Ownar");
+    const modal = new ModalBuilder()
+        .setCustomId("modal_ticket_ownar")
+        .setTitle("Ownar");
 
-    const timeInput =
-        new TextInputBuilder()
-            .setCustomId("time")
-            .setLabel(
-                "Qual time ou seleção você quer ownar?"
-            )
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setMaxLength(100);
+    const timeInput = new TextInputBuilder()
+        .setCustomId("time")
+        .setLabel("Qual time ou seleção você quer ownar?")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
 
-    const squadsheetInput =
-        new TextInputBuilder()
-            .setCustomId("squadsheet")
-            .setLabel("Squadsheet")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setMaxLength(2000);
+    const squadsheetInput = new TextInputBuilder()
+        .setCustomId("squadsheet")
+        .setLabel("Squadsheet")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
     modal.addComponents(
-        new ActionRowBuilder()
-            .addComponents(timeInput),
-
-        new ActionRowBuilder()
-            .addComponents(squadsheetInput)
+        new ActionRowBuilder().addComponents(timeInput),
+        new ActionRowBuilder().addComponents(squadsheetInput)
     );
 
     return interaction.showModal(modal);
@@ -510,24 +414,19 @@ function abrirModalOwnar(interaction) {
 // ======================================================
 
 function abrirModalParceria(interaction) {
-    const modal =
-        new ModalBuilder()
-            .setCustomId(
-                "modal_ticket_parceria"
-            )
-            .setTitle("Parceria");
+    const modal = new ModalBuilder()
+        .setCustomId("modal_ticket_parceria")
+        .setTitle("Parceria");
 
-    const texto =
-        new TextInputBuilder()
-            .setCustomId("texto_parceria")
-            .setLabel("Texto da sua parceria")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setMaxLength(2000);
+    const texto = new TextInputBuilder()
+        .setCustomId("texto_parceria")
+        .setLabel("Texto da sua parceria")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
     modal.addComponents(
-        new ActionRowBuilder()
-            .addComponents(texto)
+        new ActionRowBuilder().addComponents(texto)
     );
 
     return interaction.showModal(modal);
@@ -538,53 +437,43 @@ function abrirModalParceria(interaction) {
 // ======================================================
 
 function abrirModalOutros(interaction) {
-    const modal =
-        new ModalBuilder()
-            .setCustomId(
-                "modal_ticket_outros"
-            )
-            .setTitle("Outros");
+    const modal = new ModalBuilder()
+        .setCustomId("modal_ticket_outros")
+        .setTitle("Outros");
 
-    const texto =
-        new TextInputBuilder()
-            .setCustomId("o_que_deseja")
-            .setLabel("O que você deseja?")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setMaxLength(2000);
+    const texto = new TextInputBuilder()
+        .setCustomId("o_que_deseja")
+        .setLabel("O que você deseja?")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
     modal.addComponents(
-        new ActionRowBuilder()
-            .addComponents(texto)
+        new ActionRowBuilder().addComponents(texto)
     );
 
     return interaction.showModal(modal);
 }
 
 // ======================================================
-// CRIAR CONTAINER DE CONFIRMAÇÃO
+// CONTAINER DE CONFIRMAÇÃO
 // ======================================================
 
 function criarContainerConfirmacao(user) {
-    const confirmButtons =
-        new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        CONFIRM_CLOSE_TICKET
-                    )
-                    .setLabel("Sim")
-                    .setEmoji("✅")
-                    .setStyle(ButtonStyle.Success),
+    const confirmButtons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(CONFIRM_CLOSE_TICKET)
+                .setLabel("Sim")
+                .setEmoji("✅")
+                .setStyle(ButtonStyle.Success),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        CANCEL_CLOSE_TICKET
-                    )
-                    .setLabel("Não")
-                    .setEmoji("❌")
-                    .setStyle(ButtonStyle.Danger)
-            );
+            new ButtonBuilder()
+                .setCustomId(CANCEL_CLOSE_TICKET)
+                .setLabel("Não")
+                .setEmoji("❌")
+                .setStyle(ButtonStyle.Danger)
+        );
 
     return new ContainerBuilder()
         .addTextDisplayComponents(
@@ -593,37 +482,11 @@ function criarContainerConfirmacao(user) {
                     `⚠️ | ${user} Você tem certeza que deseja fechar esse ticket?`
                 )
         )
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-        )
+        .addSeparatorComponents(new SeparatorBuilder())
         .addActionRowComponents(confirmButtons)
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-        )
+        .addSeparatorComponents(new SeparatorBuilder())
         .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(TICKET_FOOTER)
-        );
-}
-
-// ======================================================
-// CONTAINER FECHANDO TICKET
-// ======================================================
-
-function criarContainerFechando() {
-    return new ContainerBuilder()
-        .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(
-                    "⚠️ | Fechando esse ticket em 3. 2. 1."
-                )
-        )
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-        )
-        .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(TICKET_FOOTER)
+            new TextDisplayBuilder().setContent(TICKET_FOOTER)
         );
 }
 
@@ -635,16 +498,11 @@ function criarContainerCancelado() {
     return new ContainerBuilder()
         .addTextDisplayComponents(
             new TextDisplayBuilder()
-                .setContent(
-                    "⚠️ | Fechamento do ticket cancelado"
-                )
+                .setContent("⚠️ | Fechamento do ticket cancelado")
         )
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-        )
+        .addSeparatorComponents(new SeparatorBuilder())
         .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(TICKET_FOOTER)
+            new TextDisplayBuilder().setContent(TICKET_FOOTER)
         );
 }
 
@@ -663,19 +521,14 @@ function isStaff(interaction) {
         return false;
     }
 
-    // Permite também administradores
     if (
         member.permissions?.has &&
-        member.permissions.has(
-            PermissionFlagsBits.Administrator
-        )
+        member.permissions.has(PermissionFlagsBits.Administrator)
     ) {
         return true;
     }
 
-    return Boolean(
-        member.roles?.cache?.has(STAFF_ROLE_ID)
-    );
+    return Boolean(member.roles?.cache?.has(STAFF_ROLE_ID));
 }
 
 // ======================================================
@@ -684,9 +537,7 @@ function isStaff(interaction) {
 
 async function handleTicketInteraction(interaction) {
 
-    // ==================================================
     // MENU DE SELEÇÃO
-    // ==================================================
 
     if (
         interaction.isStringSelectMenu() &&
@@ -702,14 +553,6 @@ async function handleTicketInteraction(interaction) {
             return abrirModalParceria(interaction);
         }
 
-        if (escolha === TICKET_DENUNCIA) {
-            return criarCanalTicket(
-                interaction,
-                "Denúncia",
-                "Envie neste canal todas as informações e **anexe as imagens/provas necessárias**."
-            );
-        }
-
         if (escolha === TICKET_OUTROS) {
             return abrirModalOutros(interaction);
         }
@@ -717,9 +560,7 @@ async function handleTicketInteraction(interaction) {
         return true;
     }
 
-    // ==================================================
     // BOTÃO FECHAR — PEDIR CONFIRMAÇÃO
-    // ==================================================
 
     if (
         interaction.isButton() &&
@@ -735,12 +576,9 @@ async function handleTicketInteraction(interaction) {
                                     "❌ Apenas a equipe responsável pode fechar este ticket."
                                 )
                         )
-                        .addSeparatorComponents(
-                            new SeparatorBuilder()
-                        )
+                        .addSeparatorComponents(new SeparatorBuilder())
                         .addTextDisplayComponents(
-                            new TextDisplayBuilder()
-                                .setContent(TICKET_FOOTER)
+                            new TextDisplayBuilder().setContent(TICKET_FOOTER)
                         )
                 ],
                 flags:
@@ -750,18 +588,12 @@ async function handleTicketInteraction(interaction) {
         }
 
         return interaction.reply({
-            components: [
-                criarContainerConfirmacao(
-                    interaction.user
-                )
-            ],
+            components: [criarContainerConfirmacao(interaction.user)],
             flags: MessageFlags.IsComponentsV2
         });
     }
 
-        // ==================================================
     // CONFIRMAR FECHAMENTO — CONTAGEM REGRESSIVA
-    // ==================================================
 
     if (
         interaction.isButton() &&
@@ -769,8 +601,7 @@ async function handleTicketInteraction(interaction) {
     ) {
         if (!isStaff(interaction)) {
             return interaction.reply({
-                content:
-                    "❌ Apenas a equipe responsável pode fechar este ticket.",
+                content: "❌ Apenas a equipe responsável pode fechar este ticket.",
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -785,61 +616,42 @@ async function handleTicketInteraction(interaction) {
             });
         }
 
-        // Mostra o primeiro número imediatamente
-        const criarContagem = (numero) =>
+        const criarContagem = numero =>
             new ContainerBuilder()
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
                         `⚠️ | Fechando esse ticket em ${numero}...`
                     )
                 )
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
+                .addSeparatorComponents(new SeparatorBuilder())
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        TICKET_FOOTER
-                    )
+                    new TextDisplayBuilder().setContent(TICKET_FOOTER)
                 );
 
         await interaction.update({
             components: [criarContagem(3)]
         });
 
-        // Contagem: 3 → 2 → 1
         for (const numero of [2, 1]) {
-            await new Promise(resolve =>
-                setTimeout(resolve, 1000)
-            );
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             await interaction.editReply({
                 components: [criarContagem(numero)]
             });
         }
 
-        // Aguarda um segundo depois do número 1
-        await new Promise(resolve =>
-            setTimeout(resolve, 1000)
-        );
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Exclui o canal
         try {
-            await channel.delete(
-                "Ticket fechado pela equipe da PML"
-            );
+            await channel.delete("Ticket fechado pela equipe da PML");
         } catch (error) {
-            console.error(
-                "❌ Erro ao fechar ticket:",
-                error
-            );
+            console.error("❌ Erro ao fechar ticket:", error);
         }
 
         return true;
     }
 
-    // ==================================================
     // CANCELAR FECHAMENTO
-    // ==================================================
 
     if (
         interaction.isButton() &&
@@ -854,28 +666,20 @@ async function handleTicketInteraction(interaction) {
         }
 
         await interaction.update({
-            components: [
-                criarContainerCancelado()
-            ],
-            flags: MessageFlags.IsComponentsV2
+            components: [criarContainerCancelado()]
         });
 
         return true;
     }
 
-    // ==================================================
     // MODAL OWNAR
-    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
         interaction.customId === "modal_ticket_ownar"
     ) {
-        const time =
-            interaction.fields.getTextInputValue("time");
-
-        const squadsheet =
-            interaction.fields.getTextInputValue("squadsheet");
+        const time = interaction.fields.getTextInputValue("time");
+        const squadsheet = interaction.fields.getTextInputValue("squadsheet");
 
         const conteudo =
             "**Time/Seleção:**\n" +
@@ -887,25 +691,16 @@ async function handleTicketInteraction(interaction) {
             squadsheet +
             "\n```";
 
-        return criarCanalTicket(
-            interaction,
-            "Ownar",
-            conteudo
-        );
+        return criarCanalTicket(interaction, "Ownar", conteudo);
     }
 
-    // ==================================================
     // MODAL PARCERIA
-    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
         interaction.customId === "modal_ticket_parceria"
     ) {
-        const texto =
-            interaction.fields.getTextInputValue(
-                "texto_parceria"
-            );
+        const texto = interaction.fields.getTextInputValue("texto_parceria");
 
         const conteudo =
             "**Proposta de parceria:**\n" +
@@ -913,25 +708,16 @@ async function handleTicketInteraction(interaction) {
             texto +
             "\n```";
 
-        return criarCanalTicket(
-            interaction,
-            "Parceria",
-            conteudo
-        );
+        return criarCanalTicket(interaction, "Parceria", conteudo);
     }
 
-    // ==================================================
     // MODAL OUTROS
-    // ==================================================
 
     if (
         interaction.isModalSubmit() &&
         interaction.customId === "modal_ticket_outros"
     ) {
-        const texto =
-            interaction.fields.getTextInputValue(
-                "o_que_deseja"
-            );
+        const texto = interaction.fields.getTextInputValue("o_que_deseja");
 
         const conteudo =
             "**Solicitação:**\n" +
@@ -939,11 +725,7 @@ async function handleTicketInteraction(interaction) {
             texto +
             "\n```";
 
-        return criarCanalTicket(
-            interaction,
-            "Outros",
-            conteudo
-        );
+        return criarCanalTicket(interaction, "Outros", conteudo);
     }
 
     return false;
@@ -954,10 +736,7 @@ async function handleTicketInteraction(interaction) {
 // ======================================================
 
 async function executarTicketCommand(interaction) {
-    if (
-        interaction.channelId !==
-        TICKET_PANEL_CHANNEL_ID
-    ) {
+    if (interaction.channelId !== TICKET_PANEL_CHANNEL_ID) {
         return interaction.reply({
             content:
                 `❌ O comando deve ser usado em <#${TICKET_PANEL_CHANNEL_ID}>.`,
@@ -968,9 +747,7 @@ async function executarTicketCommand(interaction) {
     const painel = criarPainelTicket();
 
     return interaction.reply({
-        components: [
-            painel.container
-        ],
+        components: [painel.container],
         files: painel.files,
         flags: MessageFlags.IsComponentsV2
     });
@@ -980,8 +757,7 @@ async function executarTicketCommand(interaction) {
 // EXPORTS
 // ======================================================
 
-ticketCommand.execute =
-    executarTicketCommand;
+ticketCommand.execute = executarTicketCommand;
 
 module.exports = {
     ticketCommand,

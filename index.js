@@ -370,7 +370,7 @@ client.on(
                 new TextDisplayBuilder()
                     .setContent(
 
-                        "Você acabou de entrar na VTL. Antes de usar os canais, faça a verificação e leia as informações principais.\n\n" +
+                        "Você acabou de entrar na PML. Antes de usar os canais, faça a verificação e leia as informações principais.\n\n" +
 
                         `> 🚫 <#1552633537939898469>\n` +
 

@@ -149,9 +149,8 @@ server.listen(PORT, () => {
 
 async function registrarComandos() {
     try {
-        const rest = new REST({ version: "10" }).setToken(
-            config.TOKEN
-        );
+        const rest = new REST({ version: "10" })
+            .setToken(config.TOKEN);
 
         console.log("🔄 Registrando comandos...");
 
@@ -164,7 +163,10 @@ async function registrarComandos() {
             `✅ ${commands.length} comandos registrados com sucesso.`
         );
     } catch (error) {
-        console.error("❌ Erro ao registrar comandos:", error);
+        console.error(
+            "❌ Erro ao registrar comandos:",
+            error
+        );
     }
 }
 
@@ -197,9 +199,8 @@ client.on("guildMemberAdd", async member => {
 
         container.addMediaGalleryComponents(
             new MediaGalleryBuilder().addItems(
-                new MediaGalleryItemBuilder().setURL(
-                    WELCOME_IMAGE_URL
-                )
+                new MediaGalleryItemBuilder()
+                    .setURL(WELCOME_IMAGE_URL)
             )
         );
 
@@ -273,7 +274,7 @@ client.on("guildMemberAdd", async member => {
 });
 
 // ======================================================
-// MENSAGENS - TICKETS E PARCERIAS AUTOMÁTICAS
+// MENSAGENS DO TICKET / PARCERIA
 // ======================================================
 
 client.on("messageCreate", async message => {
@@ -281,7 +282,7 @@ client.on("messageCreate", async message => {
         await handleTicketMessage(message);
     } catch (error) {
         console.error(
-            "❌ Erro ao processar mensagem do ticket/parceria:",
+            "❌ Erro ao processar mensagem do ticket:",
             error
         );
     }
@@ -310,10 +311,7 @@ client.once("clientReady", async () => {
 
 client.on("interactionCreate", async interaction => {
     try {
-        // ==========================================
         // SHOUTS - COMANDO
-        // ==========================================
-
         if (
             interaction.isChatInputCommand() &&
             interaction.commandName === "shouts"
@@ -321,10 +319,7 @@ client.on("interactionCreate", async interaction => {
             return await executarShouts(interaction);
         }
 
-        // ==========================================
         // SHOUTS - MODAL
-        // ==========================================
-
         if (
             interaction.isModalSubmit() &&
             interaction.customId === "modal_shouts"
@@ -336,10 +331,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
         // BOTÕES DE CONTRATO
-        // ==========================================
-
         if (interaction.isButton()) {
             const processado = await processarBotaoContrato(
                 interaction
@@ -348,10 +340,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
         // FREE AGENCY
-        // ==========================================
-
         if (
             interaction.isModalSubmit() &&
             interaction.customId === "modal_freeagency"
@@ -363,10 +352,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
         // SCOUTING
-        // ==========================================
-
         if (
             interaction.isModalSubmit() &&
             interaction.customId === "modal_scouting"
@@ -378,10 +364,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
         // RULES
-        // ==========================================
-
         if (
             interaction.isStringSelectMenu() &&
             interaction.customId === "rules_select"
@@ -393,10 +376,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
-        // INTERAÇÕES DO TICKET
-        // ==========================================
-
+        // TICKET: MENUS, BOTÕES E MODAIS
         if (
             interaction.isStringSelectMenu() ||
             interaction.isButton() ||
@@ -409,40 +389,32 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // ==========================================
         // SLASH COMMANDS
-        // ==========================================
-
         if (interaction.isChatInputCommand()) {
-            // TICKET
             if (interaction.commandName === "ticket") {
                 return await ticketCommand.execute(
                     interaction
                 );
             }
 
-            // FREE AGENCY
             if (interaction.commandName === "freeagency") {
                 return await freeagencyCommand.execute(
                     interaction
                 );
             }
 
-            // SCOUTING
             if (interaction.commandName === "scouting") {
                 return await scoutingCommand.execute(
                     interaction
                 );
             }
 
-            // RULES
             if (interaction.commandName === "rules") {
                 return await rulesCommand.execute(
                     interaction
                 );
             }
 
-            // CONTRATOS / TIMES
             if (
                 interaction.commandName === "perm" ||
                 interaction.commandName === "unperm" ||
@@ -518,7 +490,10 @@ client.on("shardError", (error, shardId) => {
 });
 
 client.on("error", error => {
-    console.error("❌ Erro do cliente Discord:", error);
+    console.error(
+        "❌ Erro do cliente Discord:",
+        error
+    );
 });
 
 client.on("warn", warning => {

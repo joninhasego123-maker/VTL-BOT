@@ -49,6 +49,14 @@ const PARTNERSHIP_INVITE_URL =
 const SCREENSHOT_TIMEOUT =
     config.PARTNERSHIP_SCREENSHOT_TIMEOUT ?? 180000;
 
+// Avaliações
+const RATING_LOG_CHANNEL_ID =
+    config.RATING_LOG_CHANNEL_ID ?? "1559215314535718993";
+
+const RATING_IMAGE_URL =
+    config.RATING_IMAGE_URL ??
+    "https://plain-enam-prod-public.komododecks.com/202610/12/dMJ19urMC9XeCxdmIzPc/image.png";
+
 const TICKET_FOOTER = "-# PML • TICKET SYSTEM";
 const PARTNERSHIP_FOOTER = "-# PML • PARCERIAS AUTOMÁTICAS";
 
@@ -59,7 +67,17 @@ const TICKET_OUTROS = "0bbd775bc3454cb48519ba583feef317";
 const CLOSE_TICKET = "fechar_ticket";
 const CONFIRM_CLOSE_TICKET = "confirmar_fechar_ticket";
 const CANCEL_CLOSE_TICKET = "cancelar_fechar_ticket";
+const CLAIM_TICKET = "claim_ticket";
 const TICKET_SELECT = "ticket_tipo_select";
+
+const RATING_SELECT_PREFIX = "avaliacao_nota:";
+const RATING_MODAL_PREFIX = "modal_avaliacao:";
+
+const TIPOS_TICKET = {
+    ownar: "Ownar",
+    outros: "Outros",
+    parceria: "Parceria"
+};
 
 const partnershipStates = new Map();
 const screenshotTimers = new Map();
@@ -145,6 +163,21 @@ function nomeCanal(username) {
             .replace(/[^a-z0-9-]/g, "")
             .slice(0, 85)
     );
+}
+
+function timestampDiscord(data = new Date()) {
+    return `<t:${Math.floor(data.getTime() / 1000)}:F>`;
+}
+
+// Tópico do canal: ticket:<donoId>:<tipo>[:<staffId>]
+function lerTopicoTicket(channel) {
+    const [, ownerId, tipoSlug, staffId] = (channel?.topic ?? "").split(":");
+
+    return {
+        ownerId: ownerId ?? null,
+        tipoSlug: tipoSlug ?? null,
+        staffId: staffId ?? null
+    };
 }
 
 // ======================================================
@@ -256,10 +289,11 @@ function criarTicketContainer({ user, tipo, conteudo }) {
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            "## 🎫 TICKET ABERTO\n\n" +
-            `**Usuário:** ${user}\n` +
-            `**ID:** \`${user.id}\`\n\n` +
-            `**Tipo:** ${tipo}`
+            "## 🎟 Ticket aberto\n\n" +
+            `> 👤 **Criado por:** ${user} (\`${user.id}\`)\n` +
+            `> 🏷 **Tipo do ticket:** ${tipo}\n` +
+            `> 📅 **Data de abertura:** ${timestampDiscord()}\n` +
+            `> 🛠 **Atendimento:** <@&${STAFF_ROLE_ID}>`
         )
     );
 
@@ -267,7 +301,7 @@ function criarTicketContainer({ user, tipo, conteudo }) {
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            `**Atendimento:** <@&${STAFF_ROLE_ID}>\n\n${conteudo}`
+            `ℹ️ **Informações preenchidas**\n\n${conteudo}`
         )
     );
 
@@ -276,13 +310,21 @@ function criarTicketContainer({ user, tipo, conteudo }) {
     container.addActionRowComponents(
         new ActionRowBuilder().addComponents(
             criarBotao(
+                CLAIM_TICKET,
+                "Claim ticket",
+                "✅",
+                ButtonStyle.Success
+            ),
+            criarBotao(
                 CLOSE_TICKET,
-                "Fechar Ticket",
-                "🔒",
+                "Close ticket",
+                "❌",
                 ButtonStyle.Danger
             )
         )
     );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(TICKET_FOOTER)
@@ -318,7 +360,7 @@ async function criarCanalTicket(interaction, tipo, conteudo) {
         name: nomeCanal(interaction.user.username),
         type: ChannelType.GuildText,
         parent: TICKET_CATEGORY_ID,
-        topic: `ticket:${interaction.user.id}`,
+        topic: `ticket:${interaction.user.id}:${tipo.toLowerCase()}`,
         permissionOverwrites: [
             {
                 id: guild.id,
@@ -380,6 +422,274 @@ async function criarCanalTicket(interaction, tipo, conteudo) {
     return interaction.reply({
         content: `✅ Seu ticket foi criado: ${channel}`,
         flags: MessageFlags.Ephemeral
+    });
+}
+
+// ======================================================
+// CLAIM DO TICKET
+// ======================================================
+
+function containerAtendimentoIniciado(ownerId, staffId) {
+    return new ContainerBuilder()
+        .setAccentColor(0x90ee90)
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent("## 🤝 Atendimento Iniciado")
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `Olá <@${ownerId}>, o seu atendimento foi iniciado!\n\n` +
+                `**Staff:** <@${staffId}>\n\n` +
+                "> Por favor, descreva sua solicitação detalhadamente para agilizar o suporte."
+            )
+        )
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(TICKET_FOOTER)
+        );
+}
+
+async function claimarTicket(interaction) {
+    if (!isStaff(interaction)) {
+        return interaction.reply({
+            content: "❌ Apenas a equipe responsável pode assumir este ticket.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    const channel = interaction.channel;
+    const { ownerId, tipoSlug, staffId } = lerTopicoTicket(channel);
+
+    if (!ownerId || !tipoSlug) {
+        return interaction.reply({
+            content: "❌ Não consegui identificar os dados deste ticket.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    if (staffId) {
+        return interaction.reply({
+            content: `❌ Este ticket já foi assumido por <@${staffId}>.`,
+            flags: MessageFlags.Ephemeral,
+            allowedMentions: { parse: [] }
+        });
+    }
+
+    await channel
+        .setTopic(`ticket:${ownerId}:${tipoSlug}:${interaction.user.id}`)
+        .catch(error => console.error("Erro ao salvar claim no tópico:", error));
+
+    return interaction.reply({
+        components: [containerAtendimentoIniciado(ownerId, interaction.user.id)],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { users: [ownerId] }
+    });
+}
+
+// ======================================================
+// AVALIAÇÃO DO ATENDIMENTO
+// ======================================================
+
+function containerAvaliacaoDM(ownerId, staffId, tipoSlug) {
+    const container = new ContainerBuilder();
+
+    container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(RATING_IMAGE_URL)
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            "## ⭐️ AVALIE O ATENDIMENTO!\n\n" +
+            `Como foi o atendimento de <@${staffId}> que te ajudou no ticket? ` +
+            "Deixe sua avaliação de 1 a 5 estrelas e conte como foi sua experiência!\n\n" +
+            "⭐ — Péssimo\n" +
+            "⭐⭐ — Ruim\n" +
+            "⭐⭐⭐ — Bom\n" +
+            "⭐⭐⭐⭐ — Muito bom\n" +
+            "⭐⭐⭐⭐⭐ — Excelente!\n\n" +
+            "Sua avaliação ajuda nossa equipe a melhorar cada vez mais! 💙\n\n" +
+            "> ⚠️ | Dar nota troll pode resultar em WARN ou até mesmo BANIMENTO da PML"
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent("**Selecione sua nota**")
+    );
+
+    container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(
+                    `${RATING_SELECT_PREFIX}${ownerId}:${staffId}:${tipoSlug}`
+                )
+                .setPlaceholder("Selecione sua nota...")
+                .addOptions(
+                    { label: "5 estrelas", description: "Excelente!", value: "5", emoji: "⭐" },
+                    { label: "4 estrelas", description: "Muito bom", value: "4", emoji: "⭐" },
+                    { label: "3 estrelas", description: "Bom", value: "3", emoji: "⭐" },
+                    { label: "2 estrelas", description: "Ruim", value: "2", emoji: "⭐" },
+                    { label: "1 estrela", description: "Péssimo", value: "1", emoji: "⭐" }
+                )
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(TICKET_FOOTER)
+    );
+
+    return container;
+}
+
+async function enviarAvaliacaoDM(channel, fechadoPor) {
+    const { ownerId, tipoSlug, staffId } = lerTopicoTicket(channel);
+
+    // Tickets de parceria não passam por avaliação
+    if (!ownerId || !tipoSlug || tipoSlug === "parceria") return;
+
+    const staffResponsavel = staffId ?? fechadoPor.id;
+
+    try {
+        const dono = await channel.client.users.fetch(ownerId);
+
+        await dono.send({
+            components: [
+                containerAvaliacaoDM(ownerId, staffResponsavel, tipoSlug)
+            ],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: { parse: [] }
+        });
+    } catch (error) {
+        // DM fechada ou usuário inacessível: segue o fechamento normalmente
+        console.error("Não consegui enviar a avaliação por DM:", error.message);
+    }
+}
+
+function abrirModalAvaliacao(interaction) {
+    const [ownerId, staffId, tipoSlug] = interaction.customId
+        .slice(RATING_SELECT_PREFIX.length)
+        .split(":");
+
+    if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+            content: "❌ Esta avaliação pertence a outra pessoa.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    const nota = interaction.values[0];
+
+    const modal = new ModalBuilder()
+        .setCustomId(
+            `${RATING_MODAL_PREFIX}${ownerId}:${staffId}:${tipoSlug}:${nota}`
+        )
+        .setTitle(`Avaliação — ${nota}/5`);
+
+    const motivo = new TextInputBuilder()
+        .setCustomId("motivo_nota")
+        .setLabel("Qual o motivo da sua nota?")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(motivo));
+
+    return interaction.showModal(modal);
+}
+
+function containerLogAvaliacao({ tipoSlug, ownerId, staffId, nota, motivo }) {
+    const container = new ContainerBuilder();
+
+    container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(RATING_IMAGE_URL)
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            "## ⭐️ Nova avaliação\n\n" +
+            `> 🏷 **Tipo do ticket:** ${TIPOS_TICKET[tipoSlug] ?? tipoSlug}\n` +
+            `> 👤 **Membro:** <@${ownerId}> (\`${ownerId}\`)\n` +
+            `> 🛠 **Staff:** <@${staffId}> (\`${staffId}\`)\n` +
+            `> ⭐ **Nota:** ${"⭐".repeat(nota)} (${nota}/5)\n` +
+            `> 📝 **Motivo da nota:** ${motivo}\n` +
+            `> 📅 **Data:** ${timestampDiscord()}`
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(TICKET_FOOTER)
+    );
+
+    return container;
+}
+
+async function registrarAvaliacao(interaction) {
+    const [ownerId, staffId, tipoSlug, notaTexto] = interaction.customId
+        .slice(RATING_MODAL_PREFIX.length)
+        .split(":");
+
+    if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+            content: "❌ Esta avaliação pertence a outra pessoa.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    const nota = Math.min(5, Math.max(1, Number(notaTexto) || 1));
+    const motivo = interaction.fields.getTextInputValue("motivo_nota");
+
+    const canalLogs = await interaction.client.channels
+        .fetch(RATING_LOG_CHANNEL_ID)
+        .catch(() => null);
+
+    if (canalLogs?.isTextBased()) {
+        await canalLogs
+            .send({
+                components: [
+                    containerLogAvaliacao({
+                        tipoSlug,
+                        ownerId,
+                        staffId,
+                        nota,
+                        motivo
+                    })
+                ],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: { parse: [] }
+            })
+            .catch(error => console.error("Erro ao enviar log de avaliação:", error));
+    } else {
+        console.error("Canal de logs de avaliação não encontrado.");
+    }
+
+    const agradecimento = containerTexto(
+        `✅ Obrigado pela sua avaliação! Você deu nota **${nota}/5**. 💙`
+    );
+
+    // Troca a mensagem da DM, impedindo avaliar duas vezes
+    if (interaction.isFromMessage()) {
+        return interaction.update({
+            components: [agradecimento],
+            flags: MessageFlags.IsComponentsV2
+        });
+    }
+
+    return interaction.reply({
+        components: [agradecimento],
+        flags: MessageFlags.IsComponentsV2
     });
 }
 
@@ -519,8 +829,8 @@ function containerInicioParceria(userId) {
 
 function containerRequisitos() {
     return containerTexto(
-        "**Mande o link de convite permanente da sua liga abaixo.**\n\n" +
-        "**Requisitos**\n\n" +
+        "Mande o link de convite permanente da sua liga abaixo.\n\n" +
+        "Requisitos\n\n" +
         `> Sem ping: ${MIN_MEMBERS} membros\n` +
         `> Here: ${HERE_MIN_MEMBERS} membros\n` +
         `> Everyone: ${EVERYONE_MIN_MEMBERS} membros`,
@@ -597,12 +907,12 @@ function containerProximoPasso(estado) {
 
 function containerPedidoPrint() {
     return containerTexto(
-        "📸 **Por favor, envie uma print mostrando que você enviou nosso texto de parceria no seu servidor.**\n\n" +
-        "• A print deve mostrar claramente o **texto oficial da PML** enviado.\n" +
-        "• Certifique-se de que **TODO** o texto da PML esteja visível.\n" +
+        "📸 Por favor, envie uma print mostrando que você enviou nosso texto de parceria no seu servidor.\n\n" +
+        "• A print deve mostrar claramente o texto oficial da PML enviado.\n" +
+        "• Certifique-se de que TODO o texto da PML esteja visível.\n" +
         "• O bot reprova prints que não mostrem o texto oficial; a análise automática pode falhar.\n" +
-        "• Você tem **3 minutos** para enviar.\n\n" +
-        "🚨 **Aviso:** enviar prints falsas ou repetidas repetidamente pode resultar em banimento.",
+        "• Você tem 3 minutos para enviar.\n\n" +
+        "🚨 Aviso: enviar prints falsas ou repetidas repetidamente pode resultar em banimento.",
         PARTNERSHIP_FOOTER
     );
 }
@@ -611,14 +921,14 @@ function containerPrintReprovada() {
     return new ContainerBuilder()
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "❌ **A print não foi aprovada pelo BOT!**\n\n" +
-                "**Motivo:** Não foi possível confirmar todo o texto na print.\n\n" +
+                "❌ A print não foi aprovada pelo BOT!\n\n" +
+                "Motivo: Não foi possível confirmar todo o texto na print.\n\n" +
                 "Por favor, envie uma print que mostre claramente:\n\n" +
                 "1. O servidor correto;\n" +
                 "2. A divulgação/convite da PML publicada dentro dele.\n\n" +
-                "💡 **Dica:** não vale mandar convite de um servidor e print de outro. " +
+                "💡 Dica: não vale mandar convite de um servidor e print de outro. " +
                 "O texto oficial ou o convite da PML precisa aparecer no servidor correto.\n\n" +
-                "🚨 **Aviso:** enviar prints falsas ou repetidas repetidamente pode resultar em banimento."
+                "🚨 Aviso: enviar prints falsas ou repetidas repetidamente pode resultar em banimento."
             )
         )
         .addSeparatorComponents(new SeparatorBuilder())
@@ -680,8 +990,6 @@ function extrairCodigoConvite(texto) {
 
     return match ? match[1] : null;
 }
-
-
 
 async function verificarConvite(message, estado) {
     const codigo = extrairCodigoConvite(message.content);
@@ -746,8 +1054,6 @@ async function verificarConvite(message, estado) {
         }
     });
 }
-
-
 
 // ======================================================
 // ANÁLISE BÁSICA DE PRINT — OCR OPCIONAL
@@ -1237,6 +1543,14 @@ async function handleTicketInteraction(interaction) {
         return false;
     }
 
+    // MENU DE NOTA (DM DE AVALIAÇÃO)
+    if (
+        interaction.isStringSelectMenu() &&
+        interaction.customId.startsWith(RATING_SELECT_PREFIX)
+    ) {
+        return abrirModalAvaliacao(interaction);
+    }
+
     // BOTÕES DE PARCERIA
     if (
         interaction.isButton() &&
@@ -1248,6 +1562,14 @@ async function handleTicketInteraction(interaction) {
         )
     ) {
         return handlePartnershipInteraction(interaction);
+    }
+
+    // CLAIM DO TICKET
+    if (
+        interaction.isButton() &&
+        interaction.customId === CLAIM_TICKET
+    ) {
+        return claimarTicket(interaction);
     }
 
     // FECHAR TICKET: PEDIR CONFIRMAÇÃO
@@ -1328,6 +1650,9 @@ async function handleTicketInteraction(interaction) {
             components: [contagem(3)]
         });
 
+        // Envia a avaliação na DM de quem abriu o ticket
+        await enviarAvaliacaoDM(channel, interaction.user);
+
         for (const numero of [2, 1]) {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -1375,7 +1700,7 @@ async function handleTicketInteraction(interaction) {
         const squadsheet = interaction.fields.getTextInputValue("squadsheet");
 
         const conteudo =
-            "**Time/Seleção:**\n```text\n" + time + "\n```\n\n" +
+            "**Nome do time:**\n```text\n" + time + "\n```\n\n" +
             "**Squadsheet:**\n```text\n" + squadsheet + "\n```";
 
         return criarCanalTicket(interaction, "Ownar", conteudo);
@@ -1393,6 +1718,14 @@ async function handleTicketInteraction(interaction) {
             "Outros",
             "**Solicitação:**\n```text\n" + texto + "\n```"
         );
+    }
+
+    // MODAL DO MOTIVO DA NOTA (DM DE AVALIAÇÃO)
+    if (
+        interaction.isModalSubmit() &&
+        interaction.customId.startsWith(RATING_MODAL_PREFIX)
+    ) {
+        return registrarAvaliacao(interaction);
     }
 
     // MODAL FINAL DA PARCERIA
@@ -1574,7 +1907,7 @@ async function executarTicketCommand(interaction) {
         )
     ) {
         return interaction.reply({
-            content: "❌ Você precisa ter **Administrador** para usar este comando.",
+            content: "❌ Você precisa ter Administrador para usar este comando.",
             flags: MessageFlags.Ephemeral
         });
     }

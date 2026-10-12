@@ -682,6 +682,7 @@ function extrairCodigoConvite(texto) {
 }
 
 
+
 async function verificarConvite(message, estado) {
     const codigo = extrairCodigoConvite(message.content);
 
@@ -695,7 +696,6 @@ async function verificarConvite(message, estado) {
             ],
             flags: MessageFlags.IsComponentsV2
         });
-
         return;
     }
 
@@ -715,44 +715,26 @@ async function verificarConvite(message, estado) {
             ],
             flags: MessageFlags.IsComponentsV2
         });
-
         return;
     }
 
-    // Aceita convites válidos, independentemente de serem permanentes
-    // ou terem limite de tempo ou de utilizações.
     const membros = invite.approximateMemberCount;
-
-    if (typeof membros !== "number") {
-        await message.reply({
-            components: [
-                containerTexto(
-                    "⚠️ O Discord não forneceu a quantidade de membros desse servidor. Tente outro convite.",
-                    PARTNERSHIP_FOOTER
-                )
-            ],
-            flags: MessageFlags.IsComponentsV2
-        });
-
-        return;
-    }
-
     const ativos = invite.approximatePresenceCount;
     const nome = invite.guild?.name ?? "Servidor não identificado";
 
-    if (membros < MIN_MEMBERS) {
+    // Só verifica o mínimo se o Discord informar a quantidade.
+    if (typeof membros === "number" && membros < MIN_MEMBERS) {
         await message.reply({
             components: [containerMembrosInsuficientes(membros)],
             flags: MessageFlags.IsComponentsV2
         });
-
         return;
     }
 
     estado.inviteCode = codigo;
     estado.inviteUrl = `https://discord.gg/${codigo}`;
     estado.guildName = nome;
-    estado.memberCount = membros;
+    estado.memberCount = typeof membros === "number" ? membros : null;
     estado.activeCount = typeof ativos === "number" ? ativos : null;
     estado.stage = "waiting_screenshot_confirmation";
 
@@ -764,6 +746,7 @@ async function verificarConvite(message, estado) {
         }
     });
 }
+
 
 
 // ======================================================

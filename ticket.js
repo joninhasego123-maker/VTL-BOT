@@ -61,7 +61,6 @@ const CONFIRM_CLOSE_TICKET = "confirmar_fechar_ticket";
 const CANCEL_CLOSE_TICKET = "cancelar_fechar_ticket";
 const TICKET_SELECT = "ticket_tipo_select";
 
-// Os estados ficam na memória. Reiniciar o bot limpa os processos ativos.
 const partnershipStates = new Map();
 const screenshotTimers = new Map();
 
@@ -121,9 +120,7 @@ function isPartnershipStaff(interaction) {
     }
 
     return Boolean(
-        interaction.member.roles?.cache?.has(
-            PARTNERSHIP_STAFF_ROLE_ID
-        )
+        interaction.member.roles?.cache?.has(PARTNERSHIP_STAFF_ROLE_ID)
     );
 }
 
@@ -230,19 +227,11 @@ function criarPainelTicket() {
         container,
         files: [
             {
-                attachment: path.join(
-                    __dirname,
-                    "imagens",
-                    "ticket_topo.png"
-                ),
+                attachment: path.join(__dirname, "imagens", "ticket_topo.png"),
                 name: "ticket_topo.png"
             },
             {
-                attachment: path.join(
-                    __dirname,
-                    "imagens",
-                    "utl_logo.png"
-                ),
+                attachment: path.join(__dirname, "imagens", "utl_logo.png"),
                 name: "utl_logo.png"
             }
         ]
@@ -619,7 +608,7 @@ function containerPedidoPrint() {
 }
 
 function containerPrintReprovada() {
-    const container = new ContainerBuilder()
+    return new ContainerBuilder()
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 "❌ **A print não foi aprovada pelo BOT!**\n\n" +
@@ -653,8 +642,6 @@ function containerPrintReprovada() {
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(PARTNERSHIP_FOOTER)
         );
-
-    return container;
 }
 
 function containerUltimoPasso() {
@@ -790,8 +777,7 @@ async function verificarConvite(message, estado) {
 }
 
 // ======================================================
-// ANÁLISE BÁSICA DE PRINT
-// OCR OPCIONAL: npm install tesseract.js
+// ANÁLISE BÁSICA DE PRINT — OCR OPCIONAL
 // ======================================================
 
 async function analisarPrint(attachment) {
@@ -801,16 +787,13 @@ async function analisarPrint(attachment) {
         attachment.contentType?.startsWith("image/") ||
         /\.(png|jpe?g|webp|bmp|gif)$/i.test(nomeArquivo);
 
-    if (!ehImagem) {
-        return false;
-    }
+    if (!ehImagem) return false;
 
     let tesseract;
 
     try {
         tesseract = require("tesseract.js");
     } catch {
-        // Sem OCR, a print fica para avaliação manual.
         return false;
     }
 
@@ -835,8 +818,6 @@ async function analisarPrint(attachment) {
             texto.includes("campeonatos") ||
             texto.includes("discord.gg");
 
-        // É uma verificação simples de texto, não uma prova
-        // de autenticidade nem de que a imagem não foi editada.
         return temNomePML && temTextoDaDivulgacao;
     } catch (error) {
         console.error("Erro na leitura da print:", error);
@@ -911,14 +892,24 @@ async function handlePartnershipInteraction(interaction) {
 
         if (existente) {
             return interaction.update({
-                content: `❌ Você já possui um ticket aberto: ${existente}`,
-                components: []
+                components: [
+                    containerTexto(
+                        `❌ Você já possui um ticket aberto: ${existente}`,
+                        TICKET_FOOTER
+                    )
+                ],
+                flags: MessageFlags.IsComponentsV2
             });
         }
 
         await interaction.update({
-            content: "⏳ Criando seu ticket de parceria...",
-            components: []
+            components: [
+                containerTexto(
+                    "⏳ Criando seu ticket de parceria...",
+                    TICKET_FOOTER
+                )
+            ],
+            flags: MessageFlags.IsComponentsV2
         });
 
         try {
@@ -962,9 +953,7 @@ async function handlePartnershipInteraction(interaction) {
             });
 
             await channel.send({
-                components: [
-                    containerInicioParceria(userId)
-                ],
+                components: [containerInicioParceria(userId)],
                 files: [
                     {
                         attachment: path.join(
@@ -982,15 +971,25 @@ async function handlePartnershipInteraction(interaction) {
             });
 
             return interaction.editReply({
-                content: `✅ Seu ticket de parceria foi criado: ${channel}`,
-                components: []
+                components: [
+                    containerTexto(
+                        `✅ Seu ticket de parceria foi criado: ${channel}`,
+                        TICKET_FOOTER
+                    )
+                ],
+                flags: MessageFlags.IsComponentsV2
             });
         } catch (error) {
             console.error("Erro ao criar ticket de parceria:", error);
 
             return interaction.editReply({
-                content: "❌ Não consegui criar o ticket. Verifique as permissões do bot e a categoria.",
-                components: []
+                components: [
+                    containerTexto(
+                        "❌ Não consegui criar o ticket. Verifique as permissões do bot e a categoria.",
+                        TICKET_FOOTER
+                    )
+                ],
+                flags: MessageFlags.IsComponentsV2
             });
         }
     }
@@ -1007,8 +1006,13 @@ async function handlePartnershipInteraction(interaction) {
         }
 
         return interaction.update({
-            content: "❎ A abertura do ticket foi cancelada.",
-            components: []
+            components: [
+                containerTexto(
+                    "❎ A abertura do ticket foi cancelada.",
+                    TICKET_FOOTER
+                )
+            ],
+            flags: MessageFlags.IsComponentsV2
         });
     }
 
@@ -1024,9 +1028,7 @@ async function handlePartnershipInteraction(interaction) {
         }
 
         return interaction.reply({
-            components: [
-                containerConfirmarCancelamento(userId)
-            ],
+            components: [containerConfirmarCancelamento(userId)],
             flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
     }
@@ -1068,8 +1070,13 @@ async function handlePartnershipInteraction(interaction) {
         }
 
         return interaction.update({
-            content: "✅ Você pode continuar com a parceria.",
-            components: []
+            components: [
+                containerTexto(
+                    "✅ Você pode continuar com a parceria.",
+                    PARTNERSHIP_FOOTER
+                )
+            ],
+            flags: MessageFlags.IsComponentsV2
         });
     }
 
@@ -1342,9 +1349,7 @@ async function handleTicketInteraction(interaction) {
         }
 
         const contagem = numero =>
-            containerTexto(
-                `⚠️ | Fechando esse ticket em ${numero}...`
-            );
+            containerTexto(`⚠️ | Fechando esse ticket em ${numero}...`);
 
         await interaction.update({
             components: [contagem(3)]
@@ -1469,9 +1474,6 @@ async function handleTicketInteraction(interaction) {
             await canalDestino.send({
                 content: textoFinal,
                 allowedMentions: {
-                    // O Discord trata @everyone e @here na mesma
-                    // opção. O filtrarPings remove cada um
-                    // separadamente conforme o limite de membros.
                     parse: [
                         ...(estado.memberCount >= HERE_MIN_MEMBERS
                             ? ["everyone"]
@@ -1505,7 +1507,6 @@ async function handleTicketInteraction(interaction) {
 
 // ======================================================
 // EVENTO DE MENSAGENS DA PARCERIA
-// O index.js precisa chamar esta função em messageCreate.
 // ======================================================
 
 async function handleTicketMessage(message) {

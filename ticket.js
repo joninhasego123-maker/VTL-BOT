@@ -1,4 +1,3 @@
-
 const {
     SlashCommandBuilder,
     ModalBuilder,
@@ -130,7 +129,9 @@ function isPartnershipStaff(interaction) {
 
 function limparTimer(channelId) {
     const timer = screenshotTimers.get(channelId);
+
     if (timer) clearTimeout(timer);
+
     screenshotTimers.delete(channelId);
 }
 
@@ -229,11 +230,19 @@ function criarPainelTicket() {
         container,
         files: [
             {
-                attachment: path.join(__dirname, "imagens", "ticket_topo.png"),
+                attachment: path.join(
+                    __dirname,
+                    "imagens",
+                    "ticket_topo.png"
+                ),
                 name: "ticket_topo.png"
             },
             {
-                attachment: path.join(__dirname, "imagens", "utl_logo.png"),
+                attachment: path.join(
+                    __dirname,
+                    "imagens",
+                    "utl_logo.png"
+                ),
                 name: "utl_logo.png"
             }
         ]
@@ -356,18 +365,21 @@ async function criarCanalTicket(interaction, tipo, conteudo) {
                     conteudo
                 })
             ],
-            files: [{
-                attachment: path.join(
-                    __dirname,
-                    "imagens",
-                    "ticket_aberto_v2.png"
-                ),
-                name: "ticket_aberto_v2.png"
-            }],
+            files: [
+                {
+                    attachment: path.join(
+                        __dirname,
+                        "imagens",
+                        "ticket_aberto_v2.png"
+                    ),
+                    name: "ticket_aberto_v2.png"
+                }
+            ],
             flags: MessageFlags.IsComponentsV2
         });
     } catch (error) {
         console.error("Erro ao criar ticket:", error);
+
         await channel.delete().catch(() => {});
 
         return interaction.reply({
@@ -771,7 +783,9 @@ async function verificarConvite(message, estado) {
     await message.reply({
         components: [containerProximoPasso(estado)],
         flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { parse: [] }
+        allowedMentions: {
+            parse: []
+        }
     });
 }
 
@@ -781,7 +795,13 @@ async function verificarConvite(message, estado) {
 // ======================================================
 
 async function analisarPrint(attachment) {
-    if (!attachment.contentType?.startsWith("image/")) {
+    const nomeArquivo = attachment.name ?? attachment.url ?? "";
+
+    const ehImagem =
+        attachment.contentType?.startsWith("image/") ||
+        /\.(png|jpe?g|webp|bmp|gif)$/i.test(nomeArquivo);
+
+    if (!ehImagem) {
         return false;
     }
 
@@ -797,7 +817,7 @@ async function analisarPrint(attachment) {
     try {
         const resultado = await tesseract.recognize(
             attachment.url,
-            "eng"
+            "por+eng"
         );
 
         const texto = resultado.data.text
@@ -942,17 +962,23 @@ async function handlePartnershipInteraction(interaction) {
             });
 
             await channel.send({
-                components: [containerInicioParceria(userId)],
-                files: [{
-                    attachment: path.join(
-                        __dirname,
-                        "imagens",
-                        "ticket_aberto_v2.png"
-                    ),
-                    name: "ticket_aberto_v2.png"
-                }],
+                components: [
+                    containerInicioParceria(userId)
+                ],
+                files: [
+                    {
+                        attachment: path.join(
+                            __dirname,
+                            "imagens",
+                            "ticket_aberto_v2.png"
+                        ),
+                        name: "ticket_aberto_v2.png"
+                    }
+                ],
                 flags: MessageFlags.IsComponentsV2,
-                allowedMentions: { parse: [] }
+                allowedMentions: {
+                    parse: []
+                }
             });
 
             return interaction.editReply({
@@ -998,7 +1024,9 @@ async function handlePartnershipInteraction(interaction) {
         }
 
         return interaction.reply({
-            components: [containerConfirmarCancelamento(userId)],
+            components: [
+                containerConfirmarCancelamento(userId)
+            ],
             flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
         });
     }
@@ -1083,6 +1111,13 @@ async function handlePartnershipInteraction(interaction) {
             });
         }
 
+        if (estado.stage !== "waiting_screenshot_confirmation") {
+            return interaction.reply({
+                content: "❌ Primeiro envie e valide o convite permanente do seu servidor.",
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
         estado.stage = "waiting_screenshot";
 
         await interaction.reply({
@@ -1119,6 +1154,7 @@ async function handlePartnershipInteraction(interaction) {
         }, SCREENSHOT_TIMEOUT);
 
         screenshotTimers.set(interaction.channelId, timer);
+
         return true;
     }
 
@@ -1140,12 +1176,21 @@ async function handlePartnershipInteraction(interaction) {
             });
         }
 
+        if (estado.stage !== "waiting_manual_review") {
+            return interaction.reply({
+                content: "❌ Esta solicitação não está aguardando aprovação manual da print.",
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
         limparTimer(interaction.channelId);
         estado.stage = "waiting_final_text";
 
         await interaction.reply({
             content: `✅ Print aprovada manualmente por ${interaction.user}.`,
-            allowedMentions: { parse: [] }
+            allowedMentions: {
+                parse: []
+            }
         });
 
         await interaction.channel.send({
@@ -1307,6 +1352,7 @@ async function handleTicketInteraction(interaction) {
 
         for (const numero of [2, 1]) {
             await new Promise(resolve => setTimeout(resolve, 1000));
+
             await interaction.editReply({
                 components: [contagem(numero)]
             });
@@ -1423,8 +1469,13 @@ async function handleTicketInteraction(interaction) {
             await canalDestino.send({
                 content: textoFinal,
                 allowedMentions: {
+                    // O Discord trata @everyone e @here na mesma
+                    // opção. O filtrarPings remove cada um
+                    // separadamente conforme o limite de membros.
                     parse: [
-                        ...(estado.memberCount >= HERE_MIN_MEMBERS ? ["everyone"] : [])
+                        ...(estado.memberCount >= HERE_MIN_MEMBERS
+                            ? ["everyone"]
+                            : [])
                     ]
                 }
             });
@@ -1463,18 +1514,25 @@ async function handleTicketMessage(message) {
     const estado = partnershipStates.get(message.channel.id);
 
     if (!estado) return false;
+
     if (message.author.id !== estado.ownerId) return true;
 
+    // RECEBER LINK DE CONVITE
     if (estado.stage === "waiting_invite") {
         await verificarConvite(message, estado);
         return true;
     }
 
+    // RECEBER PRINT
     if (estado.stage === "waiting_screenshot") {
-        const imagem = message.attachments.find(
-            attachment =>
-                attachment.contentType?.startsWith("image/")
-        );
+        const imagem = message.attachments.find(attachment => {
+            const nomeArquivo = attachment.name ?? attachment.url ?? "";
+
+            return (
+                attachment.contentType?.startsWith("image/") ||
+                /\.(png|jpe?g|webp|bmp|gif)$/i.test(nomeArquivo)
+            );
+        });
 
         if (!imagem) {
             await message.reply({
@@ -1513,6 +1571,7 @@ async function handleTicketMessage(message) {
         return true;
     }
 
+    // PRAZO DA PRINT ENCERRADO
     if (estado.stage === "screenshot_timeout") {
         await message.reply({
             components: [

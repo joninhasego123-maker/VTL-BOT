@@ -681,6 +681,7 @@ function extrairCodigoConvite(texto) {
     return match ? match[1] : null;
 }
 
+
 async function verificarConvite(message, estado) {
     const codigo = extrairCodigoConvite(message.content);
 
@@ -688,7 +689,7 @@ async function verificarConvite(message, estado) {
         await message.reply({
             components: [
                 containerTexto(
-                    "❌ Envie um link de convite do Discord válido e permanente.",
+                    "❌ Envie um link de convite válido do Discord.",
                     PARTNERSHIP_FOOTER
                 )
             ],
@@ -708,7 +709,7 @@ async function verificarConvite(message, estado) {
         await message.reply({
             components: [
                 containerTexto(
-                    "❌ Não consegui verificar esse convite. Confira se ele está válido e tente novamente.",
+                    "❌ Não consegui verificar esse convite. Confira se o link está correto, ativo e acessível.",
                     PARTNERSHIP_FOOTER
                 )
             ],
@@ -718,27 +719,15 @@ async function verificarConvite(message, estado) {
         return;
     }
 
-    if (invite.maxAge !== 0 || invite.maxUses !== 0) {
-        await message.reply({
-            components: [
-                containerTexto(
-                    "❌ O convite precisa ser permanente, sem limite de tempo e sem limite de usos. Crie outro convite e envie novamente.",
-                    PARTNERSHIP_FOOTER
-                )
-            ],
-            flags: MessageFlags.IsComponentsV2
-        });
-
-        return;
-    }
-
+    // Aceita convites válidos, independentemente de serem permanentes
+    // ou terem limite de tempo ou de utilizações.
     const membros = invite.approximateMemberCount;
 
     if (typeof membros !== "number") {
         await message.reply({
             components: [
                 containerTexto(
-                    "⚠️ O Discord não forneceu a quantidade de membros desse servidor. Tente outro convite ou solicite análise da staff.",
+                    "⚠️ O Discord não forneceu a quantidade de membros desse servidor. Tente outro convite.",
                     PARTNERSHIP_FOOTER
                 )
             ],
@@ -775,6 +764,7 @@ async function verificarConvite(message, estado) {
         }
     });
 }
+
 
 // ======================================================
 // ANÁLISE BÁSICA DE PRINT — OCR OPCIONAL

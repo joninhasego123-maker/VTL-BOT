@@ -30,7 +30,7 @@ const TICKET_CATEGORY_ID = config.TICKET_CATEGORY_ID;
 const STAFF_ROLE_ID = config.STAFF_ROLE_ID;
 const TICKET_PANEL_CHANNEL_ID = config.TICKET_PANEL_CHANNEL_ID;
 
-const MIN_MEMBERS = config.PARTNERSHIP_MIN_MEMBERS ?? 0;
+const MIN_MEMBERS = config.PARTNERSHIP_MIN_MEMBERS ?? 20;
 const HERE_MIN_MEMBERS = config.PARTNERSHIP_HERE_MIN_MEMBERS ?? 30;
 const EVERYONE_MIN_MEMBERS = config.PARTNERSHIP_EVERYONE_MIN_MEMBERS ?? 40;
 
@@ -1437,11 +1437,8 @@ async function handlePartnershipInteraction(interaction) {
 
         estado.stage = "waiting_invite";
 
-        // Troca a mensagem de boas-vindas pela dos requisitos
-        // (attachments: [] remove a imagem da mensagem original)
-        return interaction.update({
+        return interaction.reply({
             components: [containerRequisitos()],
-            attachments: [],
             flags: MessageFlags.IsComponentsV2
         });
     }

@@ -881,7 +881,7 @@ function containerProximoPasso(estado) {
             new TextDisplayBuilder().setContent(
                 "## 📋 Próximo passo: Envie nosso texto de parceria\n\n" +
                 `> ✅ Servidor detectado: **${estado.guildName}**\n` +
-                `> ✅ Membros detectados: **${estado.memberCount}**\n` +
+                `> ✅ Membros detectados: **${estado.memberCount ?? "Não disponível"}**\n` +
                 `> ✅ Ativos detectados: **${estado.activeCount ?? "Não disponível"}**\n\n` +
                 `1. Envie o texto oficial da PML que está em <#${OFFICIAL_TEXT_CHANNEL_ID}> no **seu servidor**.\n` +
                 "2. Certifique-se de que o texto esteja visível para todos os membros.\n" +
@@ -991,6 +991,50 @@ function extrairCodigoConvite(texto) {
     return match ? match[1] : null;
 }
 
+// Busca nome, total de membros e membros ativos (online) de um convite.
+// Retorna null se o convite for inválido/inacessível.
+async function buscarContagens(client, codigo) {
+    let invite;
+
+    try {
+        invite = await client.fetchInvite(codigo);
+    } catch (error) {
+        return null;
+    }
+
+    // discord.js usa memberCount / presenceCount (approximate* ficam como fallback)
+    let membros = invite.memberCount ?? invite.approximateMemberCount ?? null;
+    let ativos = invite.presenceCount ?? invite.approximatePresenceCount ?? null;
+
+    // Fallback: consulta direta na API com with_counts
+    if (typeof membros !== "number" || typeof ativos !== "number") {
+        try {
+            const raw = await client.rest.get(`/invites/${codigo}`, {
+                query: new URLSearchParams({ with_counts: "true" })
+            });
+
+            if (typeof membros !== "number") {
+                membros = raw.approximate_member_count ?? null;
+            }
+
+            if (typeof ativos !== "number") {
+                ativos = raw.approximate_presence_count ?? null;
+            }
+        } catch (error) {
+            console.error(
+                "Erro no fallback de contagem do convite:",
+                error.message
+            );
+        }
+    }
+
+    return {
+        nome: invite.guild?.name ?? "Servidor não identificado",
+        membros: typeof membros === "number" ? membros : null,
+        ativos: typeof ativos === "number" ? ativos : null
+    };
+}
+
 async function verificarConvite(message, estado) {
     const codigo = extrairCodigoConvite(message.content);
 
@@ -1007,13 +1051,9 @@ async function verificarConvite(message, estado) {
         return;
     }
 
-    let invite;
+    const dados = await buscarContagens(message.client, codigo);
 
-    try {
-        invite = await message.client.fetchInvite(codigo, {
-            withCounts: true
-        });
-    } catch (error) {
+    if (!dados) {
         await message.reply({
             components: [
                 containerTexto(
@@ -1026,14 +1066,10 @@ async function verificarConvite(message, estado) {
         return;
     }
 
-    const membros = invite.approximateMemberCount;
-    const ativos = invite.approximatePresenceCount;
-    const nome = invite.guild?.name ?? "Servidor não identificado";
-
-    // Só verifica o mínimo se o Discord informar a quantidade.
-    if (typeof membros === "number" && membros < MIN_MEMBERS) {
+    // Só barra se o Discord informou a quantidade e ela é menor que o mínimo
+    if (dados.membros !== null && dados.membros < MIN_MEMBERS) {
         await message.reply({
-            components: [containerMembrosInsuficientes(membros)],
+            components: [containerMembrosInsuficientes(dados.membros)],
             flags: MessageFlags.IsComponentsV2
         });
         return;
@@ -1041,9 +1077,9 @@ async function verificarConvite(message, estado) {
 
     estado.inviteCode = codigo;
     estado.inviteUrl = `https://discord.gg/${codigo}`;
-    estado.guildName = nome;
-    estado.memberCount = typeof membros === "number" ? membros : null;
-    estado.activeCount = typeof ativos === "number" ? ativos : null;
+    estado.guildName = dados.nome;
+    estado.memberCount = dados.membros;
+    estado.activeCount = dados.ativos;
     estado.stage = "waiting_screenshot_confirmation";
 
     await message.reply({
@@ -1781,7 +1817,7 @@ async function handleTicketInteraction(interaction) {
                 content: textoFinal,
                 allowedMentions: {
                     parse: [
-                        ...(estado.memberCount >= HERE_MIN_MEMBERS
+                        ...((estado.memberCount ?? 0) >= HERE_MIN_MEMBERS
                             ? ["everyone"]
                             : [])
                     ]

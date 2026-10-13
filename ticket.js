@@ -30,7 +30,7 @@ const TICKET_CATEGORY_ID = config.TICKET_CATEGORY_ID;
 const STAFF_ROLE_ID = config.STAFF_ROLE_ID;
 const TICKET_PANEL_CHANNEL_ID = config.TICKET_PANEL_CHANNEL_ID;
 
-const MIN_MEMBERS = config.PARTNERSHIP_MIN_MEMBERS ?? 0;
+const MIN_MEMBERS = config.PARTNERSHIP_MIN_MEMBERS ?? 20;
 const HERE_MIN_MEMBERS = config.PARTNERSHIP_HERE_MIN_MEMBERS ?? 30;
 const EVERYONE_MIN_MEMBERS = config.PARTNERSHIP_EVERYONE_MIN_MEMBERS ?? 40;
 
@@ -829,11 +829,11 @@ function containerInicioParceria(userId) {
 
 function containerRequisitos() {
     return containerTexto(
-        "Mande o link de convite permanente da sua liga abaixo.\n\n" +
-        "Requisitos\n\n" +
-        `> Sem ping: ${MIN_MEMBERS} membros\n` +
-        `> Here: ${HERE_MIN_MEMBERS} membros\n` +
-        `> Everyone: ${EVERYONE_MIN_MEMBERS} membros`,
+        "⚠️ | Para estabelecermos uma parceria, solicitamos que o seu servidor atenda aos seguintes requisitos mínimos de membros:\n" +
+        `> \`Sem ping:\` ${MIN_MEMBERS} membros 👥\n` +
+        `> \`@here:\` ${HERE_MIN_MEMBERS} membros 👥\n` +
+        `> \`@everyone:\` ${EVERYONE_MIN_MEMBERS} membros 👥\n` +
+        "Quanto maior o alcance da menção, maior o número de membros exigido.",
         PARTNERSHIP_FOOTER
     );
 }
@@ -1149,12 +1149,13 @@ function abrirModalTextoParceria(interaction) {
         .setCustomId("modal_partner_final_text")
         .setTitle("Envie o texto da sua parceria");
 
+    // 1700 deixa folga para a assinatura "Parceria do servidor ... solicitada por" (limite de 2000)
     const texto = new TextInputBuilder()
         .setCustomId("texto_parceria_final")
         .setLabel("Envie o texto da sua parceria")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
-        .setMaxLength(2000);
+        .setMaxLength(1700);
 
     modal.addComponents(
         new ActionRowBuilder().addComponents(texto)
@@ -1179,6 +1180,26 @@ function filtrarPings(texto, estado) {
     }
 
     return resultado;
+}
+
+// Troca qualquer convite diferente do que o membro enviou no início.
+// O convite da própria PML é mantido.
+function corrigirConvites(texto, estado) {
+    if (!estado.inviteCode) return texto;
+
+    const codigoPML = extrairCodigoConvite(PARTNERSHIP_INVITE_URL);
+
+    return texto.replace(
+        /(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/([a-zA-Z0-9-]+)/gi,
+        (link, codigo) => {
+            const c = codigo.toLowerCase();
+
+            if (c === estado.inviteCode.toLowerCase()) return link;
+            if (codigoPML && c === codigoPML.toLowerCase()) return link;
+
+            return estado.inviteUrl;
+        }
+    );
 }
 
 // ======================================================
@@ -1416,8 +1437,11 @@ async function handlePartnershipInteraction(interaction) {
 
         estado.stage = "waiting_invite";
 
-        return interaction.reply({
+        // Troca a mensagem de boas-vindas pela dos requisitos
+        // (attachments: [] remove a imagem da mensagem original)
+        return interaction.update({
             components: [containerRequisitos()],
+            attachments: [],
             flags: MessageFlags.IsComponentsV2
         });
     }
@@ -1788,7 +1812,10 @@ async function handleTicketInteraction(interaction) {
         const textoOriginal =
             interaction.fields.getTextInputValue("texto_parceria_final");
 
-        const textoFinal = filtrarPings(textoOriginal, estado);
+        let textoFinal = corrigirConvites(
+            filtrarPings(textoOriginal, estado),
+            estado
+        );
 
         if (!textoFinal.trim()) {
             return interaction.reply({
@@ -1796,6 +1823,13 @@ async function handleTicketInteraction(interaction) {
                 flags: MessageFlags.Ephemeral
             });
         }
+
+        // Assinatura: nome do servidor + quem solicitou
+        const nomeServidor = (estado.guildName ?? "Servidor não identificado")
+            .replace(/`/g, "'");
+
+        textoFinal +=
+            `\n-# Parceria do servidor \`${nomeServidor}\` solicitada por <@${interaction.user.id}>`;
 
         const canalDestino = await interaction.client.channels
             .fetch(SUBMISSION_CHANNEL_ID)

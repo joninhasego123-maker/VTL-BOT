@@ -72,6 +72,8 @@ const TICKET_SELECT = "ticket_tipo_select";
 
 const RATING_SELECT_PREFIX = "avaliacao_nota:";
 const RATING_MODAL_PREFIX = "modal_avaliacao:";
+const RATING_CANCEL_PREFIX = "avaliacao_cancelar:";
+const RATING_CANCEL_MODAL_PREFIX = "modal_cancelar_avaliacao:";
 
 const TIPOS_TICKET = {
     ownar: "Ownar",
@@ -629,6 +631,19 @@ function containerLogAvaliacao({ tipoSlug, ownerId, staffId, nota, motivo }) {
 
     container.addSeparatorComponents(new SeparatorBuilder());
 
+    container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+            criarBotao(
+                `${RATING_CANCEL_PREFIX}${ownerId}:${staffId}`,
+                "Cancelar avaliação (Troll)",
+                "❌",
+                ButtonStyle.Danger
+            )
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(TICKET_FOOTER)
     );
@@ -690,6 +705,116 @@ async function registrarAvaliacao(interaction) {
     return interaction.reply({
         components: [agradecimento],
         flags: MessageFlags.IsComponentsV2
+    });
+}
+
+// ======================================================
+// CANCELAR AVALIAÇÃO (TROLL)
+// ======================================================
+
+// Pode cancelar: o staff que atendeu o ticket ou quem tem Administrador
+function podeCancelarAvaliacao(interaction, staffId) {
+    if (interaction.user.id === staffId) return true;
+
+    return Boolean(
+        interaction.memberPermissions?.has(
+            PermissionFlagsBits.Administrator
+        )
+    );
+}
+
+function abrirModalCancelarAvaliacao(interaction) {
+    const [ownerId, staffId] = interaction.customId
+        .slice(RATING_CANCEL_PREFIX.length)
+        .split(":");
+
+    if (!podeCancelarAvaliacao(interaction, staffId)) {
+        return interaction.reply({
+            content: "❌ Apenas o staff que atendeu o ticket ou um administrador pode cancelar esta avaliação.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    const modal = new ModalBuilder()
+        .setCustomId(`${RATING_CANCEL_MODAL_PREFIX}${ownerId}:${staffId}`)
+        .setTitle("Cancelar avaliação");
+
+    const motivo = new TextInputBuilder()
+        .setCustomId("motivo_cancelamento")
+        .setLabel("Qual o motivo do cancelamento?")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(motivo));
+
+    return interaction.showModal(modal);
+}
+
+function containerAvaliacaoCancelada({ ownerId, staffId, canceladoPorId, motivo }) {
+    const container = new ContainerBuilder();
+
+    container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(RATING_IMAGE_URL)
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            "## 🚫 Avaliação cancelada!\n\n" +
+            `> 🛠 **Staff:** <@${staffId}> (\`${staffId}\`)\n` +
+            `> 🛠 **Staff que cancelou:** <@${canceladoPorId}> (\`${canceladoPorId}\`)\n` +
+            `> 👤 **Membro:** <@${ownerId}> (\`${ownerId}\`)\n` +
+            `> 📝 **Motivo do cancelamento:** ${motivo}\n` +
+            `> 📅 **Data:** ${timestampDiscord()}`
+        )
+    );
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(TICKET_FOOTER)
+    );
+
+    return container;
+}
+
+async function cancelarAvaliacao(interaction) {
+    const [ownerId, staffId] = interaction.customId
+        .slice(RATING_CANCEL_MODAL_PREFIX.length)
+        .split(":");
+
+    if (!podeCancelarAvaliacao(interaction, staffId)) {
+        return interaction.reply({
+            content: "❌ Apenas o staff que atendeu o ticket ou um administrador pode cancelar esta avaliação.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    const motivo = interaction.fields.getTextInputValue("motivo_cancelamento");
+
+    // O modal foi aberto a partir do botão da mensagem de log
+    if (!interaction.isFromMessage()) {
+        return interaction.reply({
+            content: "❌ Não consegui localizar a mensagem da avaliação para editar.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    return interaction.update({
+        components: [
+            containerAvaliacaoCancelada({
+                ownerId,
+                staffId,
+                canceladoPorId: interaction.user.id,
+                motivo
+            })
+        ],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
     });
 }
 
@@ -1608,6 +1733,14 @@ async function handleTicketInteraction(interaction) {
         return abrirModalAvaliacao(interaction);
     }
 
+    // BOTÃO: CANCELAR AVALIAÇÃO (TROLL)
+    if (
+        interaction.isButton() &&
+        interaction.customId.startsWith(RATING_CANCEL_PREFIX)
+    ) {
+        return abrirModalCancelarAvaliacao(interaction);
+    }
+
     // BOTÕES DE PARCERIA
     if (
         interaction.isButton() &&
@@ -1783,6 +1916,14 @@ async function handleTicketInteraction(interaction) {
         interaction.customId.startsWith(RATING_MODAL_PREFIX)
     ) {
         return registrarAvaliacao(interaction);
+    }
+
+    // MODAL: MOTIVO DO CANCELAMENTO DA AVALIAÇÃO
+    if (
+        interaction.isModalSubmit() &&
+        interaction.customId.startsWith(RATING_CANCEL_MODAL_PREFIX)
+    ) {
+        return cancelarAvaliacao(interaction);
     }
 
     // MODAL FINAL DA PARCERIA

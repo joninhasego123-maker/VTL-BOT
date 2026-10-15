@@ -77,7 +77,7 @@ app.get("/api/players", async (req, res) => {
         res.json((await carregar()).players);
     } catch (e) {
         console.error("Erro /api/players:", e);
-        res.status(500).json({ error: "erro" });
+        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
     }
 });
 
@@ -86,7 +86,7 @@ app.get("/api/teams", async (req, res) => {
         res.json((await carregar()).teams);
     } catch (e) {
         console.error("Erro /api/teams:", e);
-        res.status(500).json({ error: "erro" });
+        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
     }
 });
 

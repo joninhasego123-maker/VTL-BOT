@@ -103,13 +103,12 @@ function blocoTime(container, content, logoUrl) {
 
 }
 
-function textoContrato(teamName, position, funcao, wage) {
+function textoContrato(teamName, position, funcao) {
 
     return (
         `**Time:** ${teamName}\n` +
         `**Posi\u00e7\u00e3o:** ${position}\n` +
-        `**Fun\u00e7\u00e3o:** ${funcao}` +
-        (wage ? `\n**Wage:** ${wage}` : "")
+        `**Fun\u00e7\u00e3o:** ${funcao}`
     );
 
 }
@@ -124,7 +123,6 @@ function criarContratoContainer({
     teamName,
     position,
     funcao,
-    wage = null,
     contractId,
     status = "pending",
     logoUrl = null
@@ -152,7 +150,7 @@ function criarContratoContainer({
 
     blocoTime(
         container,
-        textoContrato(teamName, position, funcao, wage),
+        textoContrato(teamName, position, funcao),
         logoUrl
     );
 
@@ -261,8 +259,7 @@ async function registrarContrato({ client, contract, status }) {
             textoContrato(
                 teamName,
                 contract.position,
-                contract.function,
-                contract.wage
+                contract.function
             ),
             team?.logo_url
         );
@@ -381,6 +378,10 @@ const aprovarCommand =
             .setDescription("Classe do jogador.")
             .setRequired(true)
             .addChoices(...CLASSES.map(c => ({ name: c, value: c }))))
+        .addStringOption(o => o
+            .setName("wage")
+            .setDescription("Sal\u00e1rio. Ex: 75K")
+            .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 const contractCommand =
@@ -400,11 +401,7 @@ const contractCommand =
             .setName("funcao")
             .setDescription("Fun\u00e7\u00e3o do jogador.")
             .setRequired(true)
-            .addChoices(...FUNCTIONS.map(f => ({ name: f, value: f }))))
-        .addStringOption(o => o
-            .setName("wage")
-            .setDescription("Sal\u00e1rio. Ex: 75K")
-            .setRequired(true));
+            .addChoices(...FUNCTIONS.map(f => ({ name: f, value: f }))));
 
 const releaseCommand =
     new SlashCommandBuilder()
@@ -862,6 +859,7 @@ async function executarComando(interaction) {
         const nick = interaction.options.getString("nick").trim();
         const link = interaction.options.getString("link").trim();
         const classe = interaction.options.getString("classe");
+        const wage = interaction.options.getString("wage").trim();
 
         const match = link.match(
             /roblox\.com\/(?:[a-z]{2}\/)?users\/(\d+)/i
@@ -905,6 +903,7 @@ async function executarComando(interaction) {
                     roblox_nick: nick,
                     roblox_link: link,
                     class: classe,
+                    wage: wage,
                     avatar_url: avatar,
                     approved_by: interaction.user.id
                 },
@@ -918,7 +917,7 @@ async function executarComando(interaction) {
 
         return interaction.reply({
             content:
-                `\u2705 ${membro} aprovado como **${nick}** (classe **${classe}**).`
+                `\u2705 ${membro} aprovado como **${nick}** (classe **${classe}**, wage **${wage}**).`
         });
 
     }
@@ -949,7 +948,6 @@ async function executarComando(interaction) {
         const player = interaction.options.getUser("player");
         const position = interaction.options.getString("posicao");
         const funcao = interaction.options.getString("funcao");
-        const wage = interaction.options.getString("wage").trim();
 
         const { data: permission, error: permissionError } =
             await supabase
@@ -1038,7 +1036,6 @@ async function executarComando(interaction) {
                     team_role_id: teamRole.id,
                     position: position,
                     function: funcao,
-                    wage: wage,
                     status: "pending"
                 })
                 .select()
@@ -1055,7 +1052,6 @@ async function executarComando(interaction) {
             teamName: team.name,
             position: position,
             funcao: funcao,
-            wage: wage,
             contractId: contract.id,
             status: "pending",
             logoUrl: team.logo_url
@@ -1374,7 +1370,6 @@ async function processarBotaoContrato(interaction) {
         teamName: team?.name || teamRole?.name || "Time n\u00e3o encontrado",
         position: contract.position,
         funcao: contract.function,
-        wage: contract.wage,
         contractId: contract.id,
         status: newStatus,
         logoUrl: team?.logo_url || null

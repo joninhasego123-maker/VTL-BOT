@@ -1,13 +1,144 @@
 const express = require("express");
+const crypto = require("crypto");
 const supabase = require("./supabase");
 
 const app = express();
+
 const GUILD_ID = process.env.GUILD_ID || null;
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || "";
+const SECRET = process.env.SESSION_SECRET || "";
+const SITE_URL = (process.env.SITE_URL || "https://pml-site-1.onrender.com").replace(/\/$/, "");
+const API_URL = (
+    process.env.API_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    "https://vtl-bot-167.onrender.com"
+).replace(/\/$/, "");
+const REDIRECT_URI = API_URL + "/auth/callback";
+
+// ------------------------------------------------------
+// CORS
+// ------------------------------------------------------
 
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
 });
+
+// ------------------------------------------------------
+// Tokens assinados (sem cookies)
+// ------------------------------------------------------
+
+function assinar(obj) {
+    const p = Buffer.from(JSON.stringify(obj)).toString("base64url");
+    const s = crypto.createHmac("sha256", SECRET).update(p).digest("base64url");
+    return p + "." + s;
+}
+
+function verificar(tok) {
+    if (!tok || !SECRET) return null;
+    const partes = String(tok).split(".");
+    if (partes.length !== 2) return null;
+    const esperado = crypto
+        .createHmac("sha256", SECRET)
+        .update(partes[0])
+        .digest("base64url");
+    const a = Buffer.from(partes[1]);
+    const b = Buffer.from(esperado);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    try {
+        const o = JSON.parse(Buffer.from(partes[0], "base64url").toString());
+        if (o.exp && o.exp < Date.now()) return null;
+        return o;
+    } catch (e) {
+        return null;
+    }
+}
+
+function exigirLogin(req, res, next) {
+    const h = req.headers.authorization || "";
+    const user = verificar(h.replace(/^Bearer\s+/i, ""));
+    if (!user) return res.status(401).json({ error: "login" });
+    req.user = user;
+    next();
+}
+
+// ------------------------------------------------------
+// Login com Discord
+// ------------------------------------------------------
+
+app.get("/auth/login", (req, res) => {
+    if (!CLIENT_ID || !CLIENT_SECRET || !SECRET) {
+        return res
+            .status(500)
+            .send("Login nao configurado: faltam variaveis de ambiente.");
+    }
+    const state = assinar({ exp: Date.now() + 10 * 60 * 1000 });
+    const url =
+        "https://discord.com/oauth2/authorize" +
+        "?client_id=" + encodeURIComponent(CLIENT_ID) +
+        "&response_type=code" +
+        "&scope=identify" +
+        "&prompt=none" +
+        "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
+        "&state=" + encodeURIComponent(state);
+    res.redirect(url);
+});
+
+app.get("/auth/callback", async (req, res) => {
+    try {
+        const { code, state } = req.query;
+
+        if (!code || !verificar(state)) {
+            return res.redirect(SITE_URL + "/#erro");
+        }
+
+        const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+                grant_type: "authorization_code",
+                code: String(code),
+                redirect_uri: REDIRECT_URI
+            })
+        });
+
+        const tokenData = await tokenRes.json();
+        if (!tokenData.access_token) {
+            console.error("Erro no token do Discord:", tokenData);
+            return res.redirect(SITE_URL + "/#erro");
+        }
+
+        const userRes = await fetch("https://discord.com/api/users/@me", {
+            headers: { Authorization: "Bearer " + tokenData.access_token }
+        });
+        const u = await userRes.json();
+        if (!u.id) {
+            return res.redirect(SITE_URL + "/#erro");
+        }
+
+        const sessao = assinar({
+            id: u.id,
+            name: u.global_name || u.username,
+            avatar: u.avatar || "",
+            exp: Date.now() + 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.redirect(SITE_URL + "/#token=" + sessao);
+    } catch (e) {
+        console.error("Erro /auth/callback:", e);
+        res.redirect(SITE_URL + "/#erro");
+    }
+});
+
+// ------------------------------------------------------
+// Dados
+// ------------------------------------------------------
 
 let cache = { at: 0, data: null };
 
@@ -45,18 +176,29 @@ async function carregar() {
         contractByPlayer[x.player_id] = x;
     });
 
-    const players = p.data.map(x => {
+    const players = [];
+    const byDiscord = {};
+
+    p.data.forEach(x => {
         const ct = contractByPlayer[x.discord_id];
         const tm = ct ? teamByRole[ct.team_role_id] : null;
-        return {
+
+        const jogador = {
             id: x.roblox_id,
             nick: x.roblox_nick,
             link: x.roblox_link,
             classe: x.class,
             team: tm ? tm.name : "",
+            teamLogo: tm ? tm.logo_url || "" : "",
             wage: x.wage || "",
-            avatar: x.avatar_url || ""
+            avatar: x.avatar_url || "",
+            goals: x.goals || 0,
+            assists: x.assists || 0,
+            motms: x.motms || 0
         };
+
+        players.push(jogador);
+        byDiscord[x.discord_id] = jogador;
     });
 
     const teams = t.data.map(x => ({
@@ -64,7 +206,7 @@ async function carregar() {
         logo: x.logo_url || ""
     }));
 
-    cache = { at: Date.now(), data: { players, teams } };
+    cache = { at: Date.now(), data: { players, teams, byDiscord } };
     return cache.data;
 }
 
@@ -72,7 +214,29 @@ app.get("/", (req, res) => {
     res.send("PML Bot online!");
 });
 
-app.get("/api/players", async (req, res) => {
+app.get("/api/me", exigirLogin, async (req, res) => {
+    try {
+        const d = await carregar();
+        const jogador = d.byDiscord[req.user.id] || null;
+        res.json({
+            discord: {
+                id: req.user.id,
+                name: req.user.name,
+                avatar: req.user.avatar
+                    ? "https://cdn.discordapp.com/avatars/" +
+                      req.user.id + "/" + req.user.avatar + ".png?size=128"
+                    : ""
+            },
+            approved: !!jogador,
+            player: jogador
+        });
+    } catch (e) {
+        console.error("Erro /api/me:", e);
+        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
+    }
+});
+
+app.get("/api/players", exigirLogin, async (req, res) => {
     try {
         res.json((await carregar()).players);
     } catch (e) {
@@ -81,7 +245,7 @@ app.get("/api/players", async (req, res) => {
     }
 });
 
-app.get("/api/teams", async (req, res) => {
+app.get("/api/teams", exigirLogin, async (req, res) => {
     try {
         res.json((await carregar()).teams);
     } catch (e) {

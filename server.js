@@ -20,7 +20,7 @@ async function carregar() {
     let tq = supabase.from("teams").select("name, logo_url, role_id");
     let cq = supabase
         .from("contracts")
-        .select("player_id, team_role_id, wage")
+        .select("player_id, team_role_id")
         .eq("status", "accepted");
 
     if (GUILD_ID) {
@@ -54,7 +54,7 @@ async function carregar() {
             link: x.roblox_link,
             classe: x.class,
             team: tm ? tm.name : "",
-            wage: ct ? ct.wage || "" : "",
+            wage: x.wage || "",
             avatar: x.avatar_url || ""
         };
     });

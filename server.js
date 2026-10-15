@@ -68,6 +68,10 @@ async function carregar() {
     return cache.data;
 }
 
+app.get("/", (req, res) => {
+    res.send("PML Bot online!");
+});
+
 app.get("/api/players", async (req, res) => {
     try {
         res.json((await carregar()).players);

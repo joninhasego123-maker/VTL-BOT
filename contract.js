@@ -9,6 +9,9 @@ const {
     SeparatorBuilder,
     SectionBuilder,
     ThumbnailBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
     MessageFlags
 } = require("discord.js");
 
@@ -383,6 +386,15 @@ const aprovarCommand =
             .setDescription("Sal\u00e1rio. Ex: 75K")
             .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+const infoCommand =
+    new SlashCommandBuilder()
+        .setName("info")
+        .setDescription("Mostra o perfil de um jogador da PML.")
+        .addUserOption(o => o
+            .setName("membro")
+            .setDescription("Membro que voc\u00ea quer ver. Se vazio, mostra o seu.")
+            .setRequired(false));
 
 const contractCommand =
     new SlashCommandBuilder()
@@ -923,6 +935,135 @@ async function executarComando(interaction) {
     }
 
     // ==================================================
+    // /INFO
+    // ==================================================
+
+    if (nome === "info") {
+
+        const membro =
+            interaction.options.getUser("membro") || interaction.user;
+
+        const { data: player, error: playerError } =
+            await supabase
+                .from("players")
+                .select("*")
+                .eq("guild_id", interaction.guildId)
+                .eq("discord_id", membro.id)
+                .maybeSingle();
+
+        if (playerError) {
+            console.error("\u274c Erro no /info:", playerError);
+            return erro(
+                interaction,
+                "\u274c N\u00e3o foi poss\u00edvel buscar o jogador."
+            );
+        }
+
+        if (!player) {
+            return erro(
+                interaction,
+                `\u274c ${membro} ainda n\u00e3o foi aprovado na PML, ent\u00e3o n\u00e3o d\u00e1 pra usar o /info nele.`
+            );
+        }
+
+        // Time atual (contrato aceito)
+        let timeNome = "N\u00e3o possui.";
+
+        const { data: contrato } = await supabase
+            .from("contracts")
+            .select("team_role_id")
+            .eq("guild_id", interaction.guildId)
+            .eq("player_id", membro.id)
+            .eq("status", "accepted")
+            .limit(1)
+            .maybeSingle();
+
+        if (contrato) {
+
+            const { data: time } = await supabase
+                .from("teams")
+                .select("name")
+                .eq("guild_id", interaction.guildId)
+                .eq("role_id", contrato.team_role_id)
+                .maybeSingle();
+
+            if (time) timeNome = time.name;
+
+        }
+
+        const goals = player.goals || 0;
+        const assists = player.assists || 0;
+        const motms = player.motms || 0;
+        const temStats = goals > 0 || assists > 0 || motms > 0;
+
+        const foto =
+            player.avatar_url ||
+            membro.displayAvatarURL({ extension: "png", size: 256 });
+
+        const container = new ContainerBuilder();
+
+        container.addSectionComponents(
+            new SectionBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        "\ud83d\udc64 **Jogador**\n" +
+                        `\`${membro.username}\` (\`${membro.id}\`)`
+                    )
+                )
+                .setThumbnailAccessory(
+                    new ThumbnailBuilder().setURL(foto)
+                )
+        );
+
+        let conteudo =
+            "\u2139\ufe0f **Class**\n" +
+            `${player.class}\n\n` +
+            "\ud83d\udc65 **Time**\n" +
+            `${timeNome}`;
+
+        if (temStats) {
+            conteudo +=
+                "\n\n\ud83d\udcc8 **Stats**\n" +
+                `**Goals:** ${goals}\n` +
+                `**Assists:** ${assists}\n` +
+                `**MOTM's:** ${motms}`;
+        }
+
+        texto(container, conteudo);
+
+        separador(container);
+
+        // Bot\u00e3o s\u00f3 aparece para staff
+        if (
+            interaction.memberPermissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
+            container.addActionRowComponents(
+                new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`info_edit_${membro.id}`)
+                        .setLabel("Editar jogador (staff)")
+                        .setEmoji("\u270f\ufe0f")
+                        .setStyle(ButtonStyle.Secondary)
+                )
+            );
+
+            separador(container);
+
+        }
+
+        texto(container, "-# PML \u2022 Infos");
+
+        return interaction.reply({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
+        });
+
+    }
+
+    // ==================================================
     // CANAL DOS COMANDOS DE CONTRATO
     // ==================================================
 
@@ -1390,6 +1531,145 @@ async function processarBotaoContrato(interaction) {
 }
 
 // ======================================================
+// /INFO - EDITAR JOGADOR (BOT\u00c3O E MODAL, S\u00d3 STAFF)
+// ======================================================
+
+async function processarInfo(interaction) {
+
+    const ehBotao =
+        interaction.isButton() &&
+        interaction.customId.startsWith("info_edit_");
+
+    const ehModal =
+        interaction.isModalSubmit() &&
+        interaction.customId.startsWith("info_modal_");
+
+    if (!ehBotao && !ehModal) return false;
+
+    if (
+        !interaction.memberPermissions.has(
+            PermissionFlagsBits.Administrator
+        )
+    ) {
+        await erro(
+            interaction,
+            "\u274c Apenas a staff pode editar jogadores."
+        );
+        return true;
+    }
+
+    // ---------- bot\u00e3o: abre o formul\u00e1rio ----------
+
+    if (ehBotao) {
+
+        const discordId =
+            interaction.customId.replace("info_edit_", "");
+
+        const { data: player } = await supabase
+            .from("players")
+            .select("*")
+            .eq("guild_id", interaction.guildId)
+            .eq("discord_id", discordId)
+            .maybeSingle();
+
+        if (!player) {
+            await erro(interaction, "\u274c Jogador n\u00e3o encontrado.");
+            return true;
+        }
+
+        const campo = (id, label, valor) =>
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId(id)
+                    .setLabel(label)
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setValue(String(valor ?? ""))
+            );
+
+        const modal = new ModalBuilder()
+            .setCustomId(`info_modal_${discordId}`)
+            .setTitle("Editar jogador")
+            .addComponents(
+                campo("classe", "Classe (D, C-, C, ... S+, X)", player.class),
+                campo("wage", "Wage (ex: 75K)", player.wage),
+                campo("goals", "Goals", player.goals || 0),
+                campo("assists", "Assists", player.assists || 0),
+                campo("motms", "MOTM's", player.motms || 0)
+            );
+
+        await interaction.showModal(modal);
+        return true;
+
+    }
+
+    // ---------- modal: salva as altera\u00e7\u00f5es ----------
+
+    const discordId =
+        interaction.customId.replace("info_modal_", "");
+
+    const classe = interaction.fields
+        .getTextInputValue("classe")
+        .trim()
+        .toUpperCase();
+
+    const wage = interaction.fields.getTextInputValue("wage").trim();
+    const goals = interaction.fields.getTextInputValue("goals").trim();
+    const assists = interaction.fields.getTextInputValue("assists").trim();
+    const motms = interaction.fields.getTextInputValue("motms").trim();
+
+    if (!CLASSES.includes(classe)) {
+        await erro(
+            interaction,
+            "\u274c Classe inv\u00e1lida. Use: " + CLASSES.join(", ")
+        );
+        return true;
+    }
+
+    if (!wage) {
+        await erro(interaction, "\u274c O wage n\u00e3o pode ficar vazio.");
+        return true;
+    }
+
+    if (![goals, assists, motms].every(v => /^\d+$/.test(v))) {
+        await erro(
+            interaction,
+            "\u274c Goals, Assists e MOTM's precisam ser n\u00fameros inteiros."
+        );
+        return true;
+    }
+
+    const { error } = await supabase
+        .from("players")
+        .update({
+            class: classe,
+            wage: wage,
+            goals: Number(goals),
+            assists: Number(assists),
+            motms: Number(motms)
+        })
+        .eq("guild_id", interaction.guildId)
+        .eq("discord_id", discordId);
+
+    if (error) {
+        console.error("\u274c Erro ao editar jogador:", error);
+        await erro(
+            interaction,
+            "\u274c N\u00e3o foi poss\u00edvel salvar as altera\u00e7\u00f5es."
+        );
+        return true;
+    }
+
+    await erro(
+        interaction,
+        `\u2705 Jogador <@${discordId}> atualizado. Use /info de novo para ver as mudan\u00e7as.`
+    );
+
+    return true;
+
+}
+
+// ======================================================
 // EXPORTS
 // ======================================================
 
@@ -1400,9 +1680,11 @@ module.exports = {
     unpermCommand,
     permlistCommand,
     aprovarCommand,
+    infoCommand,
     contractCommand,
     releaseCommand,
     autoreleaseCommand,
     executarComando,
-    processarBotaoContrato
+    processarBotaoContrato,
+    processarInfo
 };

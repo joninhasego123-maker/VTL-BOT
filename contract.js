@@ -18,11 +18,13 @@ const {
 const supabase = require("./supabase");
 
 // ======================================================
-// CONFIGURA\u00c7\u00d5ES
+// CONFIGURAÇÕES
 // ======================================================
 
 const CONTRACT_CHANNEL_ID = "1552636518886019072";
 const CONTRACT_LOG_CHANNEL_ID = "1552634532262584391";
+
+const SITE_URL = "https://pml-site-1.onrender.com";
 
 const POSITIONS = [
     "Goleiro",
@@ -44,16 +46,16 @@ const CLASSES = [
 ];
 
 const STATUS_CONTRATO = {
-    pending: "\u23f3 Aguardando resposta do jogador.",
-    accepted: "\u2705 Contrato aceito pelo jogador.",
-    declined: "\u274c Contrato recusado pelo jogador.",
-    released: "\ud83d\udd13 Jogador liberado do time."
+    pending: "⏳ Aguardando resposta do jogador.",
+    accepted: "✅ Contrato aceito pelo jogador.",
+    declined: "❌ Contrato recusado pelo jogador.",
+    released: "🔓 Jogador liberado do time."
 };
 
 const STATUS_LOG = {
-    accepted: "\u2705 ACEITO",
-    declined: "\u274c RECUSADO",
-    released: "\ud83d\udd13 LIBERADO"
+    accepted: "✅ ACEITO",
+    declined: "❌ RECUSADO",
+    released: "🔓 LIBERADO"
 };
 
 // ======================================================
@@ -83,7 +85,7 @@ function idDe(valor) {
     return String(valor).replace(/\D/g, "");
 }
 
-// Texto do time com a logo \u00e0 direita (se existir)
+// Texto do time com a logo à direita (se existir)
 function blocoTime(container, content, logoUrl) {
 
     if (logoUrl) {
@@ -110,8 +112,8 @@ function textoContrato(teamName, position, funcao) {
 
     return (
         `**Time:** ${teamName}\n` +
-        `**Posi\u00e7\u00e3o:** ${position}\n` +
-        `**Fun\u00e7\u00e3o:** ${funcao}`
+        `**Posição:** ${position}\n` +
+        `**Função:** ${funcao}`
     );
 
 }
@@ -133,7 +135,7 @@ function criarContratoContainer({
 
     const container = new ContainerBuilder();
 
-    texto(container, "## \ud83d\udcc4 CONTRATO OFICIAL");
+    texto(container, "## 📄 CONTRATO OFICIAL");
 
     texto(
         container,
@@ -172,13 +174,13 @@ function criarContratoContainer({
                 new ButtonBuilder()
                     .setCustomId(`contract_accept_${contractId}`)
                     .setLabel("Aceitar")
-                    .setEmoji("\u2705")
+                    .setEmoji("✅")
                     .setStyle(ButtonStyle.Success),
 
                 new ButtonBuilder()
                     .setCustomId(`contract_decline_${contractId}`)
                     .setLabel("Recusar")
-                    .setEmoji("\u274c")
+                    .setEmoji("❌")
                     .setStyle(ButtonStyle.Danger)
 
             )
@@ -186,7 +188,7 @@ function criarContratoContainer({
 
     }
 
-    texto(container, "-# PML \u2022 CONTRACT SYSTEM");
+    texto(container, "-# PML • CONTRACT SYSTEM");
 
     return container;
 
@@ -205,7 +207,7 @@ async function registrarContrato({ client, contract, status }) {
             .catch(() => null);
 
         if (!guild) {
-            console.error("\u274c Servidor do contrato n\u00e3o encontrado.");
+            console.error("❌ Servidor do contrato não encontrado.");
             return;
         }
 
@@ -215,7 +217,7 @@ async function registrarContrato({ client, contract, status }) {
 
         if (!logChannel) {
             console.error(
-                `\u274c Canal de logs n\u00e3o encontrado: ${CONTRACT_LOG_CHANNEL_ID}`
+                `❌ Canal de logs não encontrado: ${CONTRACT_LOG_CHANNEL_ID}`
             );
             return;
         }
@@ -235,11 +237,11 @@ async function registrarContrato({ client, contract, status }) {
             .eq("role_id", contract.team_role_id)
             .maybeSingle();
 
-        const teamName = team?.name || "Time n\u00e3o encontrado";
+        const teamName = team?.name || "Time não encontrado";
 
         const container = new ContainerBuilder();
 
-        texto(container, "## \ud83d\udccb RESULTADO DO CONTRATO");
+        texto(container, "## 📋 RESULTADO DO CONTRATO");
 
         texto(
             container,
@@ -271,12 +273,12 @@ async function registrarContrato({ client, contract, status }) {
 
         texto(
             container,
-            `**Status:** ${STATUS_LOG[status] || "\u2753 DESCONHECIDO"}`
+            `**Status:** ${STATUS_LOG[status] || "❓ DESCONHECIDO"}`
         );
 
         separador(container);
 
-        texto(container, "-# VTL - CONTRACT SYSTEM");
+        texto(container, "-# PML • CONTRACT SYSTEM");
 
         await logChannel.send({
             components: [container],
@@ -284,13 +286,13 @@ async function registrarContrato({ client, contract, status }) {
         });
 
         console.log(
-            `\u2705 Resultado do contrato ${contract.id} enviado para os logs.`
+            `✅ Resultado do contrato ${contract.id} enviado para os logs.`
         );
 
     } catch (error) {
 
         console.error(
-            "\u274c Erro ao registrar resultado do contrato:",
+            "❌ Erro ao registrar resultado do contrato:",
             error
         );
 
@@ -299,13 +301,13 @@ async function registrarContrato({ client, contract, status }) {
 }
 
 // ======================================================
-// DEFINI\u00c7\u00c3O DOS COMANDOS
+// DEFINIÇÃO DOS COMANDOS
 // ======================================================
 
 const criarTimeCommand =
     new SlashCommandBuilder()
         .setName("criartime")
-        .setDescription("Cadastra um novo time na VTL.")
+        .setDescription("Cadastra um novo time na PML.")
         .addStringOption(o => o
             .setName("nome")
             .setDescription("Nome do time.")
@@ -326,17 +328,17 @@ const excluirTimeCommand =
         .setDescription("Exclui um time cadastrado na PML.")
         .addRoleOption(o => o
             .setName("cargo")
-            .setDescription("Cargo do time que ser\u00e1 exclu\u00eddo.")
+            .setDescription("Cargo do time que será excluído.")
             .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 const permCommand =
     new SlashCommandBuilder()
         .setName("perm")
-        .setDescription("D\u00e1 permiss\u00e3o de Manager para um usu\u00e1rio.")
+        .setDescription("Dá permissão de Manager para um usuário.")
         .addUserOption(o => o
             .setName("manager")
-            .setDescription("Usu\u00e1rio que ser\u00e1 Manager.")
+            .setDescription("Usuário que será Manager.")
             .setRequired(true))
         .addRoleOption(o => o
             .setName("time")
@@ -347,10 +349,10 @@ const permCommand =
 const unpermCommand =
     new SlashCommandBuilder()
         .setName("unperm")
-        .setDescription("Remove a permiss\u00e3o de Manager.")
+        .setDescription("Remove a permissão de Manager.")
         .addUserOption(o => o
             .setName("manager")
-            .setDescription("Manager que perder\u00e1 a permiss\u00e3o.")
+            .setDescription("Manager que perderá a permissão.")
             .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
@@ -383,7 +385,7 @@ const aprovarCommand =
             .addChoices(...CLASSES.map(c => ({ name: c, value: c }))))
         .addStringOption(o => o
             .setName("wage")
-            .setDescription("Sal\u00e1rio. Ex: 75K")
+            .setDescription("Salário. Ex: 75K")
             .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
@@ -393,7 +395,7 @@ const infoCommand =
         .setDescription("Mostra o perfil de um jogador da PML.")
         .addUserOption(o => o
             .setName("membro")
-            .setDescription("Membro que voc\u00ea quer ver. Se vazio, mostra o seu.")
+            .setDescription("Membro que você quer ver. Se vazio, mostra o seu.")
             .setRequired(false));
 
 const contractCommand =
@@ -402,16 +404,16 @@ const contractCommand =
         .setDescription("Envia um contrato para um jogador.")
         .addUserOption(o => o
             .setName("player")
-            .setDescription("Jogador que receber\u00e1 o contrato.")
+            .setDescription("Jogador que receberá o contrato.")
             .setRequired(true))
         .addStringOption(o => o
             .setName("posicao")
-            .setDescription("Posi\u00e7\u00e3o do jogador.")
+            .setDescription("Posição do jogador.")
             .setRequired(true)
             .addChoices(...POSITIONS.map(p => ({ name: p, value: p }))))
         .addStringOption(o => o
             .setName("funcao")
-            .setDescription("Fun\u00e7\u00e3o do jogador.")
+            .setDescription("Função do jogador.")
             .setRequired(true)
             .addChoices(...FUNCTIONS.map(f => ({ name: f, value: f }))));
 
@@ -421,7 +423,7 @@ const releaseCommand =
         .setDescription("Libera um jogador do seu time.")
         .addUserOption(o => o
             .setName("player")
-            .setDescription("Jogador que ser\u00e1 liberado.")
+            .setDescription("Jogador que será liberado.")
             .setRequired(true));
 
 const autoreleaseCommand =
@@ -451,7 +453,7 @@ async function removerCargoTime({ guild, playerId, roleId }) {
 
     } catch (error) {
 
-        console.error("\u274c Erro ao remover cargo do jogador:", error);
+        console.error("❌ Erro ao remover cargo do jogador:", error);
         return false;
 
     }
@@ -476,7 +478,7 @@ async function adicionarCargoTime({ guild, playerId, roleId }) {
 
     } catch (error) {
 
-        console.error("\u274c Erro ao adicionar cargo do time:", error);
+        console.error("❌ Erro ao adicionar cargo do time:", error);
         return false;
 
     }
@@ -493,12 +495,12 @@ async function executarComando(interaction) {
 
     // Comandos de administrador
     const SO_ADMIN = {
-        criartime: "\u274c Voc\u00ea precisa ser administrador para criar um time.",
-        excluirtime: "\u274c Voc\u00ea precisa ser administrador para excluir um time.",
-        perm: "\u274c Voc\u00ea precisa ser administrador.",
-        unperm: "\u274c Voc\u00ea precisa ser administrador.",
-        permlist: "\u274c Voc\u00ea precisa ser administrador.",
-        aprovar: "\u274c Voc\u00ea precisa ser administrador."
+        criartime: "❌ Você precisa ser administrador para criar um time.",
+        excluirtime: "❌ Você precisa ser administrador para excluir um time.",
+        perm: "❌ Você precisa ser administrador.",
+        unperm: "❌ Você precisa ser administrador.",
+        permlist: "❌ Você precisa ser administrador.",
+        aprovar: "❌ Você precisa ser administrador."
     };
 
     if (
@@ -523,7 +525,7 @@ async function executarComando(interaction) {
         if (!logo) {
             return erro(
                 interaction,
-                "\u274c Voc\u00ea precisa enviar uma imagem como logo."
+                "❌ Você precisa enviar uma imagem como logo."
             );
         }
 
@@ -541,7 +543,7 @@ async function executarComando(interaction) {
         ) {
             return erro(
                 interaction,
-                "\u274c O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF."
+                "❌ O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF."
             );
         }
 
@@ -554,17 +556,17 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (buscaError) {
-            console.error("\u274c Erro ao verificar time:", buscaError);
+            console.error("❌ Erro ao verificar time:", buscaError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar os times cadastrados."
+                "❌ Não foi possível verificar os times cadastrados."
             );
         }
 
         if (timeExistente) {
             return erro(
                 interaction,
-                `\u274c O cargo ${cargo} j\u00e1 est\u00e1 cadastrado como o time **${timeExistente.name}**.`
+                `❌ O cargo ${cargo} já está cadastrado como o time **${timeExistente.name}**.`
             );
         }
 
@@ -577,17 +579,17 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (nomeError) {
-            console.error("\u274c Erro ao verificar nome:", nomeError);
+            console.error("❌ Erro ao verificar nome:", nomeError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar o nome do time."
+                "❌ Não foi possível verificar o nome do time."
             );
         }
 
         if (nomeExistente) {
             return erro(
                 interaction,
-                "\u274c J\u00e1 existe um time com esse nome neste servidor."
+                "❌ Já existe um time com esse nome neste servidor."
             );
         }
 
@@ -605,10 +607,10 @@ async function executarComando(interaction) {
                 .single();
 
         if (insertError) {
-            console.error("\u274c Erro ao criar time:", insertError);
+            console.error("❌ Erro ao criar time:", insertError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel cadastrar o time no Supabase."
+                "❌ Não foi possível cadastrar o time no Supabase."
             );
         }
 
@@ -616,7 +618,7 @@ async function executarComando(interaction) {
 
         texto(
             container,
-            "## \u26bd TIME CADASTRADO\n\n" +
+            "## ⚽ TIME CADASTRADO\n\n" +
             `**Nome:** ${time.name}\n` +
             `**Cargo:** ${cargo}\n` +
             `**Criado por:** ${interaction.user}\n` +
@@ -625,7 +627,7 @@ async function executarComando(interaction) {
 
         separador(container);
 
-        texto(container, "-# VTL - CONTRACT SYSTEM");
+        texto(container, "-# PML • CONTRACT SYSTEM");
 
         return interaction.reply({
             components: [container],
@@ -651,14 +653,14 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (teamError) {
-            console.error("\u274c Erro ao buscar time:", teamError);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel verificar o time.");
+            console.error("❌ Erro ao buscar time:", teamError);
+            return erro(interaction, "❌ Não foi possível verificar o time.");
         }
 
         if (!team) {
             return erro(
                 interaction,
-                "\u274c Esse cargo n\u00e3o est\u00e1 cadastrado como um time da PML."
+                "❌ Esse cargo não está cadastrado como um time da PML."
             );
         }
 
@@ -672,12 +674,12 @@ async function executarComando(interaction) {
 
         if (contractsError) {
             console.error(
-                "\u274c Erro ao buscar jogadores do time:",
+                "❌ Erro ao buscar jogadores do time:",
                 contractsError
             );
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar os jogadores do time."
+                "❌ Não foi possível verificar os jogadores do time."
             );
         }
 
@@ -703,7 +705,7 @@ async function executarComando(interaction) {
             .eq("team_role_id", cargo.id);
 
         if (permissionError) {
-            console.error("\u274c Erro ao remover permiss\u00f5es:", permissionError);
+            console.error("❌ Erro ao remover permissões:", permissionError);
         }
 
         const { error: deleteError } = await supabase
@@ -712,14 +714,14 @@ async function executarComando(interaction) {
             .eq("id", team.id);
 
         if (deleteError) {
-            console.error("\u274c Erro ao excluir time:", deleteError);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel excluir o time.");
+            console.error("❌ Erro ao excluir time:", deleteError);
+            return erro(interaction, "❌ Não foi possível excluir o time.");
         }
 
         return erro(
             interaction,
-            `\u2705 O time **${team.name}** foi exclu\u00eddo da PML.\n` +
-            `\ud83d\udc65 ${contracts?.length || 0} jogador(es) foram liberados e tiveram o cargo removido.`
+            `✅ O time **${team.name}** foi excluído da PML.\n` +
+            `👥 ${contracts?.length || 0} jogador(es) foram liberados e tiveram o cargo removido.`
         );
 
     }
@@ -742,14 +744,14 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (teamError) {
-            console.error("\u274c Erro ao verificar time:", teamError);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel verificar o time.");
+            console.error("❌ Erro ao verificar time:", teamError);
+            return erro(interaction, "❌ Não foi possível verificar o time.");
         }
 
         if (!team) {
             return erro(
                 interaction,
-                "\u274c Esse cargo n\u00e3o est\u00e1 cadastrado como um time da PML.\n\n" +
+                "❌ Esse cargo não está cadastrado como um time da PML.\n\n" +
                 "Cadastre primeiro usando `/criartime`."
             );
         }
@@ -766,13 +768,13 @@ async function executarComando(interaction) {
             );
 
         if (error) {
-            console.error("\u274c Erro no /perm:", error);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel salvar a permiss\u00e3o.");
+            console.error("❌ Erro no /perm:", error);
+            return erro(interaction, "❌ Não foi possível salvar a permissão.");
         }
 
         return erro(
             interaction,
-            `\u2705 ${manager} agora \u00e9 Manager do time **${team.name}**.`
+            `✅ ${manager} agora é Manager do time **${team.name}**.`
         );
 
     }
@@ -792,13 +794,13 @@ async function executarComando(interaction) {
             .eq("manager_id", manager.id);
 
         if (error) {
-            console.error("\u274c Erro no /unperm:", error);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel remover a permiss\u00e3o.");
+            console.error("❌ Erro no /unperm:", error);
+            return erro(interaction, "❌ Não foi possível remover a permissão.");
         }
 
         return erro(
             interaction,
-            `\u2705 A permiss\u00e3o de ${manager} foi removida.`
+            `✅ A permissão de ${manager} foi removida.`
         );
 
     }
@@ -816,14 +818,14 @@ async function executarComando(interaction) {
             .order("created_at", { ascending: true });
 
         if (error) {
-            console.error("\u274c Erro no /permlist:", error);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel carregar a lista.");
+            console.error("❌ Erro no /permlist:", error);
+            return erro(interaction, "❌ Não foi possível carregar a lista.");
         }
 
         if (!data || data.length === 0) {
             return erro(
                 interaction,
-                "\ud83d\udccb Nenhum Manager possui permiss\u00e3o neste servidor."
+                "📋 Nenhum Manager possui permissão neste servidor."
             );
         }
 
@@ -847,16 +849,16 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
             lista +=
-                `\ud83d\udc64 **Manager:** ${manager ? manager : `<@${permission.manager_id}>`}\n` +
-                `\u26bd **Time:** ${team?.name || role?.name || "Desconhecido"}\n\n`;
+                `👤 **Manager:** ${manager ? manager : `<@${permission.manager_id}>`}\n` +
+                `⚽ **Time:** ${team?.name || role?.name || "Desconhecido"}\n\n`;
 
         }
 
         return erro(
             interaction,
-            "## \ud83d\udccb MANAGERS AUTORIZADOS\n\n" +
+            "## 📋 MANAGERS AUTORIZADOS\n\n" +
             lista +
-            "\n-# PML \u2022 CONTRACT SYSTEM"
+            "\n-# PML • CONTRACT SYSTEM"
         );
 
     }
@@ -880,7 +882,7 @@ async function executarComando(interaction) {
         if (!match) {
             return erro(
                 interaction,
-                "\u274c Link inv\u00e1lido. Use: https://www.roblox.com/users/ID/profile"
+                "❌ Link inválido. Use: https://www.roblox.com/users/ID/profile"
             );
         }
 
@@ -901,7 +903,7 @@ async function executarComando(interaction) {
 
         } catch (e) {
 
-            console.log("\u26a0\ufe0f N\u00e3o foi poss\u00edvel buscar o avatar do Roblox.");
+            console.log("⚠️ Não foi possível buscar o avatar do Roblox.");
 
         }
 
@@ -923,13 +925,51 @@ async function executarComando(interaction) {
             );
 
         if (error) {
-            console.error("\u274c Erro no /aprovar:", error);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel aprovar o jogador.");
+            console.error("❌ Erro no /aprovar:", error);
+            return erro(interaction, "❌ Não foi possível aprovar o jogador.");
+        }
+
+        // ---------- DM para o jogador aprovado ----------
+
+        const dmContainer = new ContainerBuilder();
+
+        texto(
+            dmContainer,
+            "## ✅ Você foi aprovado na PML!\n" +
+            `> **Username:** ${nick}\n` +
+            `> **Link:** ${link}\n` +
+            `> **Class:** ${classe}`
+        );
+
+        separador(dmContainer);
+
+        texto(
+            dmContainer,
+            `-# Para mais informações entre no [SITE](${SITE_URL}) da PML.`
+        );
+
+        let dmEnviada = true;
+
+        try {
+
+            await membro.send({
+                components: [dmContainer],
+                flags: MessageFlags.IsComponentsV2
+            });
+
+        } catch (e) {
+
+            dmEnviada = false;
+            console.log(`⚠️ Não foi possível enviar DM para ${membro.tag}.`);
+
         }
 
         return interaction.reply({
             content:
-                `\u2705 ${membro} aprovado como **${nick}** (classe **${classe}**, wage **${wage}**).`
+                `✅ ${membro} aprovado como **${nick}** (classe **${classe}**, wage **${wage}**).` +
+                (dmEnviada
+                    ? ""
+                    : "\n⚠️ Não consegui enviar a DM, o jogador está com as mensagens privadas fechadas.")
         });
 
     }
@@ -952,22 +992,22 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (playerError) {
-            console.error("\u274c Erro no /info:", playerError);
+            console.error("❌ Erro no /info:", playerError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel buscar o jogador."
+                "❌ Não foi possível buscar o jogador."
             );
         }
 
         if (!player) {
             return erro(
                 interaction,
-                `\u274c ${membro} ainda n\u00e3o foi aprovado na PML, ent\u00e3o n\u00e3o d\u00e1 pra usar o /info nele.`
+                `❌ ${membro} ainda não foi aprovado na PML, então não dá pra usar o /info nele.`
             );
         }
 
         // Time atual (contrato aceito)
-        let timeNome = "N\u00e3o possui.";
+        let timeNome = "Não possui.";
 
         const { data: contrato } = await supabase
             .from("contracts")
@@ -1006,7 +1046,7 @@ async function executarComando(interaction) {
             new SectionBuilder()
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        "\ud83d\udc64 **Jogador**\n" +
+                        "👤 **Jogador**\n" +
                         `\`${membro.username}\` (\`${membro.id}\`)`
                     )
                 )
@@ -1016,14 +1056,14 @@ async function executarComando(interaction) {
         );
 
         let conteudo =
-            "\u2139\ufe0f **Class**\n" +
+            "ℹ️ **Class**\n" +
             `${player.class}\n\n` +
-            "\ud83d\udc65 **Time**\n" +
+            "👥 **Time**\n" +
             `${timeNome}`;
 
         if (temStats) {
             conteudo +=
-                "\n\n\ud83d\udcc8 **Stats**\n" +
+                "\n\n📈 **Stats**\n" +
                 `**Goals:** ${goals}\n` +
                 `**Assists:** ${assists}\n` +
                 `**MOTM's:** ${motms}`;
@@ -1033,7 +1073,7 @@ async function executarComando(interaction) {
 
         separador(container);
 
-        // Bot\u00e3o s\u00f3 aparece para staff
+        // Botão só aparece para staff
         if (
             interaction.memberPermissions.has(
                 PermissionFlagsBits.Administrator
@@ -1045,7 +1085,7 @@ async function executarComando(interaction) {
                     new ButtonBuilder()
                         .setCustomId(`info_edit_${membro.id}`)
                         .setLabel("Editar jogador (staff)")
-                        .setEmoji("\u270f\ufe0f")
+                        .setEmoji("✏️")
                         .setStyle(ButtonStyle.Secondary)
                 )
             );
@@ -1054,7 +1094,7 @@ async function executarComando(interaction) {
 
         }
 
-        texto(container, "-# PML \u2022 Infos");
+        texto(container, "-# PML • Infos");
 
         return interaction.reply({
             components: [container],
@@ -1075,7 +1115,7 @@ async function executarComando(interaction) {
     ) {
         return erro(
             interaction,
-            `\u274c Este comando s\u00f3 pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`
+            `❌ Este comando só pode ser usado em <#${CONTRACT_CHANNEL_ID}>.`
         );
     }
 
@@ -1099,15 +1139,15 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (permissionError) {
-            console.error("\u274c Erro ao verificar permiss\u00e3o:", permissionError);
+            console.error("❌ Erro ao verificar permissão:", permissionError);
             return erro(
                 interaction,
-                "\u274c Erro ao verificar sua permiss\u00e3o de Manager."
+                "❌ Erro ao verificar sua permissão de Manager."
             );
         }
 
         if (!permission) {
-            return erro(interaction, "\u274c Voc\u00ea n\u00e3o possui permiss\u00e3o de Manager.");
+            return erro(interaction, "❌ Você não possui permissão de Manager.");
         }
 
         const teamRole = interaction.guild.roles.cache.get(
@@ -1115,7 +1155,7 @@ async function executarComando(interaction) {
         );
 
         if (!teamRole) {
-            return erro(interaction, "\u274c O cargo do seu time n\u00e3o foi encontrado.");
+            return erro(interaction, "❌ O cargo do seu time não foi encontrado.");
         }
 
         const { data: team, error: teamError } =
@@ -1127,16 +1167,43 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (teamError) {
-            console.error("\u274c Erro ao verificar time:", teamError);
+            console.error("❌ Erro ao verificar time:", teamError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar o cadastro do seu time."
+                "❌ Não foi possível verificar o cadastro do seu time."
             );
         }
 
         if (!team) {
-            return erro(interaction, "\u274c Seu time n\u00e3o est\u00e1 cadastrado na VTL.");
+            return erro(interaction, "❌ Seu time não está cadastrado na PML.");
         }
+
+        // ---------- jogador precisa estar aprovado na liga ----------
+
+        const { data: jogadorAprovado, error: aprovadoError } =
+            await supabase
+                .from("players")
+                .select("discord_id")
+                .eq("guild_id", interaction.guildId)
+                .eq("discord_id", player.id)
+                .maybeSingle();
+
+        if (aprovadoError) {
+            console.error("❌ Erro ao verificar aprovação:", aprovadoError);
+            return erro(
+                interaction,
+                "❌ Não foi possível verificar se o jogador foi aprovado."
+            );
+        }
+
+        if (!jogadorAprovado) {
+            return erro(
+                interaction,
+                `❌ ${player} ainda não foi aprovado na PML, então não pode receber contrato.`
+            );
+        }
+
+        // ---------- contrato ativo ----------
 
         const { data: existingContract, error: existingError } =
             await supabase
@@ -1150,19 +1217,19 @@ async function executarComando(interaction) {
 
         if (existingError) {
             console.error(
-                "\u274c Erro ao verificar contrato existente:",
+                "❌ Erro ao verificar contrato existente:",
                 existingError
             );
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar os contratos do jogador."
+                "❌ Não foi possível verificar os contratos do jogador."
             );
         }
 
         if (existingContract) {
             return erro(
                 interaction,
-                "\u274c Esse jogador j\u00e1 possui um contrato ativo."
+                "❌ Esse jogador já possui um contrato ativo."
             );
         }
 
@@ -1183,8 +1250,8 @@ async function executarComando(interaction) {
                 .single();
 
         if (contractError) {
-            console.error("\u274c Erro ao criar contrato:", contractError);
-            return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel criar o contrato.");
+            console.error("❌ Erro ao criar contrato:", contractError);
+            return erro(interaction, "❌ Não foi possível criar o contrato.");
         }
 
         const dadosContrato = {
@@ -1223,7 +1290,7 @@ async function executarComando(interaction) {
         } catch (error) {
 
             console.log(
-                `\u26a0\ufe0f N\u00e3o foi poss\u00edvel enviar DM para ${player.tag}.`
+                `⚠️ Não foi possível enviar DM para ${player.tag}.`
             );
 
             const fallbackChannel = await interaction.guild.channels
@@ -1235,7 +1302,7 @@ async function executarComando(interaction) {
                 await fallbackChannel
                     .send({
                         content:
-                            `\u26a0\ufe0f N\u00e3o foi poss\u00edvel enviar o contrato por DM para ${player}.`
+                            `⚠️ Não foi possível enviar o contrato por DM para ${player}.`
                     })
                     .catch(() => {});
 
@@ -1243,7 +1310,7 @@ async function executarComando(interaction) {
 
         }
 
-        return erro(interaction, `\u2705 Contrato enviado para ${player}.`);
+        return erro(interaction, `✅ Contrato enviado para ${player}.`);
 
     }
 
@@ -1265,11 +1332,11 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (permissionError) {
-            return erro(interaction, "\u274c Erro ao verificar sua permiss\u00e3o.");
+            return erro(interaction, "❌ Erro ao verificar sua permissão.");
         }
 
         if (!permission) {
-            return erro(interaction, "\u274c Voc\u00ea n\u00e3o possui permiss\u00e3o de Manager.");
+            return erro(interaction, "❌ Você não possui permissão de Manager.");
         }
 
         const { data: contract, error: contractError } =
@@ -1284,17 +1351,17 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (contractError) {
-            console.error("\u274c Erro ao buscar contrato:", contractError);
+            console.error("❌ Erro ao buscar contrato:", contractError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel encontrar o contrato."
+                "❌ Não foi possível encontrar o contrato."
             );
         }
 
         if (!contract) {
             return erro(
                 interaction,
-                "\u274c Esse jogador n\u00e3o possui contrato com seu time."
+                "❌ Esse jogador não possui contrato com seu time."
             );
         }
 
@@ -1307,7 +1374,7 @@ async function executarComando(interaction) {
         if (!removido) {
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel remover o cargo do jogador."
+                "❌ Não foi possível remover o cargo do jogador."
             );
         }
 
@@ -1317,16 +1384,16 @@ async function executarComando(interaction) {
             .eq("id", contract.id);
 
         if (releaseError) {
-            console.error("\u274c Erro ao liberar jogador:", releaseError);
+            console.error("❌ Erro ao liberar jogador:", releaseError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel atualizar o contrato."
+                "❌ Não foi possível atualizar o contrato."
             );
         }
 
         return erro(
             interaction,
-            `\u2705 ${player} foi liberado do time e o cargo foi removido.`
+            `✅ ${player} foi liberado do time e o cargo foi removido.`
         );
 
     }
@@ -1350,17 +1417,17 @@ async function executarComando(interaction) {
                 .maybeSingle();
 
         if (contractError) {
-            console.error("\u274c Erro no /autorelease:", contractError);
+            console.error("❌ Erro no /autorelease:", contractError);
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel verificar seu time."
+                "❌ Não foi possível verificar seu time."
             );
         }
 
         if (!contract) {
             return erro(
                 interaction,
-                "\u274c Voc\u00ea n\u00e3o possui um contrato ativo com nenhum time."
+                "❌ Você não possui um contrato ativo com nenhum time."
             );
         }
 
@@ -1373,7 +1440,7 @@ async function executarComando(interaction) {
         if (!removido) {
             return erro(
                 interaction,
-                "\u274c N\u00e3o foi poss\u00edvel remover seu cargo do time."
+                "❌ Não foi possível remover seu cargo do time."
             );
         }
 
@@ -1390,16 +1457,16 @@ async function executarComando(interaction) {
             .eq("id", contract.id);
 
         if (updateError) {
-            console.error("\u274c Erro ao atualizar autorelease:", updateError);
+            console.error("❌ Erro ao atualizar autorelease:", updateError);
             return erro(
                 interaction,
-                "\u274c O cargo foi removido, mas n\u00e3o foi poss\u00edvel atualizar o contrato."
+                "❌ O cargo foi removido, mas não foi possível atualizar o contrato."
             );
         }
 
         return erro(
             interaction,
-            `\u2705 Voc\u00ea saiu do time **${team?.name || "desconhecido"}** e seu cargo foi removido.`
+            `✅ Você saiu do time **${team?.name || "desconhecido"}** e seu cargo foi removido.`
         );
 
     }
@@ -1409,7 +1476,7 @@ async function executarComando(interaction) {
 }
 
 // ======================================================
-// BOT\u00d5ES ACEITAR / RECUSAR
+// BOTÕES ACEITAR / RECUSAR
 // ======================================================
 
 async function processarBotaoContrato(interaction) {
@@ -1439,19 +1506,19 @@ async function processarBotaoContrato(interaction) {
         .maybeSingle();
 
     if (error || !contract) {
-        console.error("\u274c Erro ao buscar contrato:", error);
-        return erro(interaction, "\u274c Este contrato n\u00e3o foi encontrado.");
+        console.error("❌ Erro ao buscar contrato:", error);
+        return erro(interaction, "❌ Este contrato não foi encontrado.");
     }
 
     if (interaction.user.id !== contract.player_id) {
         return erro(
             interaction,
-            "\u274c Apenas o jogador que recebeu este contrato pode responder."
+            "❌ Apenas o jogador que recebeu este contrato pode responder."
         );
     }
 
     if (contract.status !== "pending") {
-        return erro(interaction, "\u274c Este contrato j\u00e1 foi respondido.");
+        return erro(interaction, "❌ Este contrato já foi respondido.");
     }
 
     const newStatus = accepted ? "accepted" : "declined";
@@ -1462,8 +1529,8 @@ async function processarBotaoContrato(interaction) {
         .eq("id", contractId);
 
     if (updateError) {
-        console.error("\u274c Erro ao atualizar contrato:", updateError);
-        return erro(interaction, "\u274c N\u00e3o foi poss\u00edvel atualizar o contrato.");
+        console.error("❌ Erro ao atualizar contrato:", updateError);
+        return erro(interaction, "❌ Não foi possível atualizar o contrato.");
     }
 
     const guild = await interaction.client.guilds
@@ -1499,7 +1566,7 @@ async function processarBotaoContrato(interaction) {
 
         if (!adicionou) {
             console.error(
-                "\u274c N\u00e3o foi poss\u00edvel adicionar o cargo do time ao jogador."
+                "❌ Não foi possível adicionar o cargo do time ao jogador."
             );
         }
 
@@ -1508,7 +1575,7 @@ async function processarBotaoContrato(interaction) {
     const container = criarContratoContainer({
         manager: manager || `<@${contract.manager_id}>`,
         player: player || `<@${contract.player_id}>`,
-        teamName: team?.name || teamRole?.name || "Time n\u00e3o encontrado",
+        teamName: team?.name || teamRole?.name || "Time não encontrado",
         position: contract.position,
         funcao: contract.function,
         contractId: contract.id,
@@ -1531,7 +1598,7 @@ async function processarBotaoContrato(interaction) {
 }
 
 // ======================================================
-// /INFO - EDITAR JOGADOR (BOT\u00c3O E MODAL, S\u00d3 STAFF)
+// /INFO - EDITAR JOGADOR (BOTÃO E MODAL, SÓ STAFF)
 // ======================================================
 
 async function processarInfo(interaction) {
@@ -1553,12 +1620,12 @@ async function processarInfo(interaction) {
     ) {
         await erro(
             interaction,
-            "\u274c Apenas a staff pode editar jogadores."
+            "❌ Apenas a staff pode editar jogadores."
         );
         return true;
     }
 
-    // ---------- bot\u00e3o: abre o formul\u00e1rio ----------
+    // ---------- botão: abre o formulário ----------
 
     if (ehBotao) {
 
@@ -1573,7 +1640,7 @@ async function processarInfo(interaction) {
             .maybeSingle();
 
         if (!player) {
-            await erro(interaction, "\u274c Jogador n\u00e3o encontrado.");
+            await erro(interaction, "❌ Jogador não encontrado.");
             return true;
         }
 
@@ -1603,7 +1670,7 @@ async function processarInfo(interaction) {
 
     }
 
-    // ---------- modal: salva as altera\u00e7\u00f5es ----------
+    // ---------- modal: salva as alterações ----------
 
     const discordId =
         interaction.customId.replace("info_modal_", "");
@@ -1621,20 +1688,20 @@ async function processarInfo(interaction) {
     if (!CLASSES.includes(classe)) {
         await erro(
             interaction,
-            "\u274c Classe inv\u00e1lida. Use: " + CLASSES.join(", ")
+            "❌ Classe inválida. Use: " + CLASSES.join(", ")
         );
         return true;
     }
 
     if (!wage) {
-        await erro(interaction, "\u274c O wage n\u00e3o pode ficar vazio.");
+        await erro(interaction, "❌ O wage não pode ficar vazio.");
         return true;
     }
 
     if (![goals, assists, motms].every(v => /^\d+$/.test(v))) {
         await erro(
             interaction,
-            "\u274c Goals, Assists e MOTM's precisam ser n\u00fameros inteiros."
+            "❌ Goals, Assists e MOTM's precisam ser números inteiros."
         );
         return true;
     }
@@ -1652,17 +1719,17 @@ async function processarInfo(interaction) {
         .eq("discord_id", discordId);
 
     if (error) {
-        console.error("\u274c Erro ao editar jogador:", error);
+        console.error("❌ Erro ao editar jogador:", error);
         await erro(
             interaction,
-            "\u274c N\u00e3o foi poss\u00edvel salvar as altera\u00e7\u00f5es."
+            "❌ Não foi possível salvar as alterações."
         );
         return true;
     }
 
     await erro(
         interaction,
-        `\u2705 Jogador <@${discordId}> atualizado. Use /info de novo para ver as mudan\u00e7as.`
+        `✅ Jogador <@${discordId}> atualizado. Use /info de novo para ver as mudanças.`
     );
 
     return true;

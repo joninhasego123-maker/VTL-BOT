@@ -16,10 +16,7 @@ const API_URL = (
 ).replace(/\/$/, "");
 const REDIRECT_URI = API_URL + "/auth/callback";
 
-// ------------------------------------------------------
 // CORS
-// ------------------------------------------------------
-
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
@@ -28,10 +25,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ------------------------------------------------------
 // Tokens assinados (sem cookies)
-// ------------------------------------------------------
-
 function assinar(obj) {
     const p = Buffer.from(JSON.stringify(obj)).toString("base64url");
     const s = crypto.createHmac("sha256", SECRET).update(p).digest("base64url");
@@ -42,10 +36,7 @@ function verificar(tok) {
     if (!tok || !SECRET) return null;
     const partes = String(tok).split(".");
     if (partes.length !== 2) return null;
-    const esperado = crypto
-        .createHmac("sha256", SECRET)
-        .update(partes[0])
-        .digest("base64url");
+    const esperado = crypto.createHmac("sha256", SECRET).update(partes[0]).digest("base64url");
     const a = Buffer.from(partes[1]);
     const b = Buffer.from(esperado);
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
@@ -66,15 +57,10 @@ function exigirLogin(req, res, next) {
     next();
 }
 
-// ------------------------------------------------------
 // Login com Discord
-// ------------------------------------------------------
-
 app.get("/auth/login", (req, res) => {
     if (!CLIENT_ID || !CLIENT_SECRET || !SECRET) {
-        return res
-            .status(500)
-            .send("Login nao configurado: faltam variaveis de ambiente.");
+        return res.status(500).send("Login nao configurado: faltam variaveis de ambiente.");
     }
     const state = assinar({ exp: Date.now() + 10 * 60 * 1000 });
     const url =
@@ -91,10 +77,7 @@ app.get("/auth/login", (req, res) => {
 app.get("/auth/callback", async (req, res) => {
     try {
         const { code, state } = req.query;
-
-        if (!code || !verificar(state)) {
-            return res.redirect(SITE_URL + "/#erro");
-        }
+        if (!code || !verificar(state)) return res.redirect(SITE_URL + "/#erro");
 
         const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
             method: "POST",
@@ -118,9 +101,7 @@ app.get("/auth/callback", async (req, res) => {
             headers: { Authorization: "Bearer " + tokenData.access_token }
         });
         const u = await userRes.json();
-        if (!u.id) {
-            return res.redirect(SITE_URL + "/#erro");
-        }
+        if (!u.id) return res.redirect(SITE_URL + "/#erro");
 
         const sessao = assinar({
             id: u.id,
@@ -136,45 +117,41 @@ app.get("/auth/callback", async (req, res) => {
     }
 });
 
-// ------------------------------------------------------
 // Dados
-// ------------------------------------------------------
-
 let cache = { at: 0, data: null };
 
 async function carregar() {
-    if (cache.data && Date.now() - cache.at < 30000) {
-        return cache.data;
-    }
+    if (cache.data && Date.now() - cache.at < 30000) return cache.data;
 
     let pq = supabase.from("players").select("*");
     let tq = supabase.from("teams").select("name, logo_url, role_id");
-    let cq = supabase
-        .from("contracts")
-        .select("player_id, team_role_id")
-        .eq("status", "accepted");
+    let cq = supabase.from("contracts").select("player_id, team_role_id").eq("status", "accepted");
+    let fq = supabase
+        .from("fixtures")
+        .select("id, home_role_id, away_role_id, match_time")
+        .gte("match_time", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+        .order("match_time", { ascending: true })
+        .limit(50);
 
     if (GUILD_ID) {
         pq = pq.eq("guild_id", GUILD_ID);
         tq = tq.eq("guild_id", GUILD_ID);
         cq = cq.eq("guild_id", GUILD_ID);
+        fq = fq.eq("guild_id", GUILD_ID);
     }
 
-    const [p, t, c] = await Promise.all([pq, tq, cq]);
+    const [p, t, c, f] = await Promise.all([pq, tq, cq, fq]);
 
-    if (p.error || t.error || c.error) {
-        throw p.error || t.error || c.error;
-    }
+    if (p.error || t.error || c.error) throw p.error || t.error || c.error;
+    // se a tabela fixtures ainda nao existir, o site continua funcionando
+    const fixData = f.error ? [] : f.data;
+    if (f.error) console.error("Erro fixtures:", f.error);
 
     const teamByRole = {};
-    t.data.forEach(x => {
-        teamByRole[x.role_id] = x;
-    });
+    t.data.forEach(x => { teamByRole[x.role_id] = x; });
 
     const contractByPlayer = {};
-    c.data.forEach(x => {
-        contractByPlayer[x.player_id] = x;
-    });
+    c.data.forEach(x => { contractByPlayer[x.player_id] = x; });
 
     const players = [];
     const byDiscord = {};
@@ -194,19 +171,30 @@ async function carregar() {
             avatar: x.avatar_url || "",
             goals: x.goals || 0,
             assists: x.assists || 0,
-            motms: x.motms || 0
+            motms: x.motms || 0,
+            cleansheets: x.cleansheets || 0
         };
 
         players.push(jogador);
         byDiscord[x.discord_id] = jogador;
     });
 
-    const teams = t.data.map(x => ({
-        name: x.name,
-        logo: x.logo_url || ""
-    }));
+    const teams = t.data.map(x => ({ name: x.name, logo: x.logo_url || "" }));
 
-    cache = { at: Date.now(), data: { players, teams, byDiscord } };
+    const fixtures = fixData.map(x => {
+        const h = teamByRole[x.home_role_id];
+        const a = teamByRole[x.away_role_id];
+        return {
+            id: x.id,
+            time: new Date(x.match_time).getTime(),
+            home: h ? h.name : "?",
+            homeLogo: h ? h.logo_url || "" : "",
+            away: a ? a.name : "?",
+            awayLogo: a ? a.logo_url || "" : ""
+        };
+    });
+
+    cache = { at: Date.now(), data: { players, teams, fixtures, byDiscord } };
     return cache.data;
 }
 
@@ -214,45 +202,34 @@ app.get("/", (req, res) => {
     res.send("PML Bot online!");
 });
 
-app.get("/api/me", exigirLogin, async (req, res) => {
-    try {
-        const d = await carregar();
-        const jogador = d.byDiscord[req.user.id] || null;
-        res.json({
-            discord: {
-                id: req.user.id,
-                name: req.user.name,
-                avatar: req.user.avatar
-                    ? "https://cdn.discordapp.com/avatars/" +
-                      req.user.id + "/" + req.user.avatar + ".png?size=128"
-                    : ""
-            },
-            approved: !!jogador,
-            player: jogador
-        });
-    } catch (e) {
-        console.error("Erro /api/me:", e);
-        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
-    }
-});
+function rota(path, pegar) {
+    app.get(path, exigirLogin, async (req, res) => {
+        try {
+            res.json(await pegar(await carregar(), req));
+        } catch (e) {
+            console.error("Erro " + path + ":", e);
+            res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
+        }
+    });
+}
 
-app.get("/api/players", exigirLogin, async (req, res) => {
-    try {
-        res.json((await carregar()).players);
-    } catch (e) {
-        console.error("Erro /api/players:", e);
-        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
-    }
+rota("/api/me", (d, req) => {
+    const jogador = d.byDiscord[req.user.id] || null;
+    return {
+        discord: {
+            id: req.user.id,
+            name: req.user.name,
+            avatar: req.user.avatar
+                ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
+                : ""
+        },
+        approved: !!jogador,
+        player: jogador
+    };
 });
-
-app.get("/api/teams", exigirLogin, async (req, res) => {
-    try {
-        res.json((await carregar()).teams);
-    } catch (e) {
-        console.error("Erro /api/teams:", e);
-        res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
-    }
-});
+rota("/api/players", d => d.players);
+rota("/api/teams", d => d.teams);
+rota("/api/fixtures", d => d.fixtures);
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("API no ar.");

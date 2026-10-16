@@ -42,8 +42,10 @@ const {
     excluirTimeCommand,
     autoreleaseCommand,
     aprovarCommand,
+    infoCommand,
     executarComando,
-    processarBotaoContrato
+    processarBotaoContrato,
+    processarInfo
 } = require("./contract");
 
 // ======================================================
@@ -102,7 +104,8 @@ const COMANDOS_CONTRATO = [
     "criartime",
     "excluirtime",
     "autorelease",
-    "aprovar"
+    "aprovar",
+    "info"
 ];
 
 // ======================================================
@@ -149,7 +152,8 @@ const commands = [
     criarTimeCommand,
     excluirTimeCommand,
     autoreleaseCommand,
-    aprovarCommand
+    aprovarCommand,
+    infoCommand
 
 ].map(command => command.toJSON());
 
@@ -346,6 +350,12 @@ client.on("interactionCreate", async interaction => {
             interaction.customId === "modal_shouts"
         ) {
             const processado = await processarShouts(interaction);
+            if (processado) return;
+        }
+
+        // INFO - BOT\u00c3O E FORMUL\u00c1RIO DE EDITAR JOGADOR
+        if (interaction.isButton() || interaction.isModalSubmit()) {
+            const processado = await processarInfo(interaction);
             if (processado) return;
         }
 

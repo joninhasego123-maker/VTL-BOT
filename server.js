@@ -8,6 +8,7 @@ const GUILD_ID = process.env.GUILD_ID || null;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || "";
 const SECRET = process.env.SESSION_SECRET || "";
+const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN || "";
 const SITE_URL = (process.env.SITE_URL || "https://pml-site-1.onrender.com").replace(/\/$/, "");
 const API_URL = (
     process.env.API_URL ||
@@ -106,6 +107,7 @@ app.get("/auth/callback", async (req, res) => {
         const sessao = assinar({
             id: u.id,
             name: u.global_name || u.username,
+            username: u.username,
             avatar: u.avatar || "",
             exp: Date.now() + 7 * 24 * 60 * 60 * 1000
         });
@@ -116,6 +118,38 @@ app.get("/auth/callback", async (req, res) => {
         res.redirect(SITE_URL + "/#erro");
     }
 });
+
+// Usuário do Discord de cada player (com cache)
+const discordCache = {};
+
+async function buscarDiscord(id) {
+    const c = discordCache[id];
+    if (c && Date.now() - c.at < (c.data ? 6 * 3600e3 : 5 * 60e3)) return c.data;
+
+    let data = null;
+
+    if (BOT_TOKEN) {
+        try {
+            const r = await fetch("https://discord.com/api/v10/users/" + id, {
+                headers: { Authorization: "Bot " + BOT_TOKEN }
+            });
+            if (r.ok) {
+                const u = await r.json();
+                data = {
+                    id: u.id,
+                    username: u.username,
+                    name: u.global_name || u.username,
+                    avatar: u.avatar
+                        ? "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + ".png?size=64"
+                        : ""
+                };
+            }
+        } catch (e) {}
+    }
+
+    discordCache[id] = { at: Date.now(), data };
+    return data;
+}
 
 // Dados
 let cache = { at: 0, data: null };
@@ -172,12 +206,26 @@ async function carregar() {
             goals: x.goals || 0,
             assists: x.assists || 0,
             motms: x.motms || 0,
-            cleansheets: x.cleansheets || 0
+            cleansheets: x.cleansheets || 0,
+            overall: x.overall || 0,
+            discord: { id: x.discord_id, name: "", username: "", avatar: "" }
         };
 
         players.push(jogador);
         byDiscord[x.discord_id] = jogador;
     });
+
+    // busca o usuário correto do Discord de cada player (em lotes, com cache)
+    const ids = p.data.map(x => x.discord_id);
+
+    for (let i = 0; i < ids.length; i += 10) {
+        await Promise.all(
+            ids.slice(i, i + 10).map(async id => {
+                const d = await buscarDiscord(id);
+                if (d) Object.assign(byDiscord[id].discord, d);
+            })
+        );
+    }
 
     const teams = t.data.map(x => ({ name: x.name, logo: x.logo_url || "" }));
 
@@ -219,6 +267,7 @@ rota("/api/me", (d, req) => {
         discord: {
             id: req.user.id,
             name: req.user.name,
+            username: req.user.username || "",
             avatar: req.user.avatar
                 ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
                 : ""

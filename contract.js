@@ -85,6 +85,24 @@ function idDe(valor) {
     return String(valor).replace(/\D/g, "");
 }
 
+// Aceita "<t:1760634000:F>", "1760634000" ou milissegundos.
+// Retorna segundos (unix) ou null se inválido.
+function lerTimestamp(entrada) {
+
+    const m = String(entrada || "").match(/\d{9,13}/);
+
+    if (!m) return null;
+
+    let n = Number(m[0]);
+
+    if (m[0].length >= 13) n = Math.floor(n / 1000);
+
+    if (!Number.isFinite(n) || n <= 0) return null;
+
+    return n;
+
+}
+
 // Texto do time com a logo à direita (se existir)
 function blocoTime(container, content, logoUrl) {
 
@@ -398,6 +416,24 @@ const infoCommand =
             .setDescription("Membro que você quer ver. Se vazio, mostra o seu.")
             .setRequired(false));
 
+const fixturesCommand =
+    new SlashCommandBuilder()
+        .setName("fixtures")
+        .setDescription("Marca um jogo nas próximas fixtures.")
+        .addRoleOption(o => o
+            .setName("home")
+            .setDescription("Cargo do time da casa (time já criado).")
+            .setRequired(true))
+        .addRoleOption(o => o
+            .setName("away")
+            .setDescription("Cargo do time visitante (time já criado).")
+            .setRequired(true))
+        .addStringOption(o => o
+            .setName("data")
+            .setDescription("Timestamp do jogo. Ex: <t:1760634000:F> ou 1760634000")
+            .setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
 const contractCommand =
     new SlashCommandBuilder()
         .setName("contract")
@@ -500,7 +536,8 @@ async function executarComando(interaction) {
         perm: "❌ Você precisa ser administrador.",
         unperm: "❌ Você precisa ser administrador.",
         permlist: "❌ Você precisa ser administrador.",
-        aprovar: "❌ Você precisa ser administrador."
+        aprovar: "❌ Você precisa ser administrador.",
+        fixtures: "❌ Você precisa ser administrador para marcar jogos."
     };
 
     if (
@@ -707,6 +744,13 @@ async function executarComando(interaction) {
         if (permissionError) {
             console.error("❌ Erro ao remover permissões:", permissionError);
         }
+
+        // remove também os jogos marcados desse time
+        await supabase
+            .from("fixtures")
+            .delete()
+            .eq("guild_id", interaction.guildId)
+            .or(`home_role_id.eq.${cargo.id},away_role_id.eq.${cargo.id}`);
 
         const { error: deleteError } = await supabase
             .from("teams")
@@ -975,6 +1019,120 @@ async function executarComando(interaction) {
     }
 
     // ==================================================
+    // /FIXTURES
+    // ==================================================
+
+    if (nome === "fixtures") {
+
+        const homeRole = interaction.options.getRole("home");
+        const awayRole = interaction.options.getRole("away");
+        const dataTxt = interaction.options.getString("data");
+
+        if (homeRole.id === awayRole.id) {
+            return erro(
+                interaction,
+                "❌ O time da casa e o visitante não podem ser o mesmo."
+            );
+        }
+
+        const segundos = lerTimestamp(dataTxt);
+
+        if (!segundos) {
+            return erro(
+                interaction,
+                "❌ Data inválida. Use um timestamp, ex: `<t:1760634000:F>` ou `1760634000`."
+            );
+        }
+
+        if (segundos * 1000 < Date.now() - 60 * 1000) {
+            return erro(
+                interaction,
+                "❌ Essa data já passou. Confira o timestamp."
+            );
+        }
+
+        const { data: times, error: timesError } =
+            await supabase
+                .from("teams")
+                .select("name, logo_url, role_id")
+                .eq("guild_id", interaction.guildId)
+                .in("role_id", [homeRole.id, awayRole.id]);
+
+        if (timesError) {
+            console.error("❌ Erro ao buscar times da fixture:", timesError);
+            return erro(
+                interaction,
+                "❌ Não foi possível verificar os times."
+            );
+        }
+
+        const home = (times || []).find(t => t.role_id === homeRole.id);
+        const away = (times || []).find(t => t.role_id === awayRole.id);
+
+        if (!home || !away) {
+            return erro(
+                interaction,
+                "❌ Os dois cargos precisam ser de times cadastrados com `/criartime`."
+            );
+        }
+
+        const { data: jogo, error: insertError } =
+            await supabase
+                .from("fixtures")
+                .insert({
+                    guild_id: interaction.guildId,
+                    home_role_id: homeRole.id,
+                    away_role_id: awayRole.id,
+                    match_time: new Date(segundos * 1000).toISOString(),
+                    created_by: interaction.user.id
+                })
+                .select()
+                .single();
+
+        if (insertError) {
+            console.error("❌ Erro ao criar fixture:", insertError);
+            return erro(
+                interaction,
+                "❌ Não foi possível marcar o jogo. A tabela `fixtures` existe no Supabase?"
+            );
+        }
+
+        const container = new ContainerBuilder();
+
+        texto(container, "## 📅 JOGO MARCADO");
+
+        blocoTime(
+            container,
+            `**Home:** ${home.name}`,
+            home.logo_url
+        );
+
+        blocoTime(
+            container,
+            `**Away:** ${away.name}`,
+            away.logo_url
+        );
+
+        separador(container);
+
+        texto(
+            container,
+            `**Data:** <t:${segundos}:F> (<t:${segundos}:R>)\n` +
+            `**ID:** \`${jogo.id}\``
+        );
+
+        separador(container);
+
+        texto(container, "-# PML • Fixtures");
+
+        return interaction.reply({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
+        });
+
+    }
+
+    // ==================================================
     // /INFO
     // ==================================================
 
@@ -1034,7 +1192,9 @@ async function executarComando(interaction) {
         const goals = player.goals || 0;
         const assists = player.assists || 0;
         const motms = player.motms || 0;
-        const temStats = goals > 0 || assists > 0 || motms > 0;
+        const cleansheets = player.cleansheets || 0;
+        const temStats =
+            goals > 0 || assists > 0 || motms > 0 || cleansheets > 0;
 
         const foto =
             player.avatar_url ||
@@ -1066,6 +1226,7 @@ async function executarComando(interaction) {
                 "\n\n📈 **Stats**\n" +
                 `**Goals:** ${goals}\n` +
                 `**Assists:** ${assists}\n` +
+                `**Clean sheets:** ${cleansheets}\n` +
                 `**MOTM's:** ${motms}`;
         }
 
@@ -1073,7 +1234,7 @@ async function executarComando(interaction) {
 
         separador(container);
 
-        // Botão só aparece para staff
+        // Botões só aparecem para staff
         if (
             interaction.memberPermissions.has(
                 PermissionFlagsBits.Administrator
@@ -1083,9 +1244,14 @@ async function executarComando(interaction) {
             container.addActionRowComponents(
                 new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`info_edit_${membro.id}`)
-                        .setLabel("Editar jogador (staff)")
+                        .setCustomId(`info_edit_perfil_${membro.id}`)
+                        .setLabel("Editar perfil (staff)")
                         .setEmoji("✏️")
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`info_edit_stats_${membro.id}`)
+                        .setLabel("Editar stats (staff)")
+                        .setEmoji("📈")
                         .setStyle(ButtonStyle.Secondary)
                 )
             );
@@ -1598,7 +1764,10 @@ async function processarBotaoContrato(interaction) {
 }
 
 // ======================================================
-// /INFO - EDITAR JOGADOR (BOTÃO E MODAL, SÓ STAFF)
+// /INFO - EDITAR JOGADOR (BOTÕES E MODAIS, SÓ STAFF)
+// Dois formulários (o Discord só permite 5 campos por modal):
+//   perfil -> classe, wage
+//   stats  -> goals, assists, clean sheets, motm's
 // ======================================================
 
 async function processarInfo(interaction) {
@@ -1625,12 +1794,23 @@ async function processarInfo(interaction) {
         return true;
     }
 
+    const campo = (id, label, valor) =>
+        new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+                .setCustomId(id)
+                .setLabel(label)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setValue(String(valor ?? ""))
+        );
+
     // ---------- botão: abre o formulário ----------
 
     if (ehBotao) {
 
-        const discordId =
-            interaction.customId.replace("info_edit_", "");
+        const resto = interaction.customId.replace("info_edit_", "");
+        const tipo = resto.startsWith("stats_") ? "stats" : "perfil";
+        const discordId = resto.replace(/^(perfil|stats)_/, "");
 
         const { data: player } = await supabase
             .from("players")
@@ -1644,26 +1824,30 @@ async function processarInfo(interaction) {
             return true;
         }
 
-        const campo = (id, label, valor) =>
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId(id)
-                    .setLabel(label)
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
-                    .setValue(String(valor ?? ""))
-            );
-
         const modal = new ModalBuilder()
-            .setCustomId(`info_modal_${discordId}`)
-            .setTitle("Editar jogador")
-            .addComponents(
-                campo("classe", "Classe (D, C-, C, ... S+, X)", player.class),
-                campo("wage", "Wage (ex: 75K)", player.wage),
-                campo("goals", "Goals", player.goals || 0),
-                campo("assists", "Assists", player.assists || 0),
-                campo("motms", "MOTM's", player.motms || 0)
-            );
+            .setCustomId(`info_modal_${tipo}_${discordId}`);
+
+        if (tipo === "perfil") {
+
+            modal
+                .setTitle("Editar perfil")
+                .addComponents(
+                    campo("classe", "Classe (D, C-, C, ... S+, X)", player.class),
+                    campo("wage", "Wage (ex: 75K)", player.wage)
+                );
+
+        } else {
+
+            modal
+                .setTitle("Editar stats")
+                .addComponents(
+                    campo("goals", "Goals", player.goals || 0),
+                    campo("assists", "Assists", player.assists || 0),
+                    campo("cleansheets", "Clean sheets", player.cleansheets || 0),
+                    campo("motms", "MOTM's", player.motms || 0)
+                );
+
+        }
 
         await interaction.showModal(modal);
         return true;
@@ -1672,49 +1856,63 @@ async function processarInfo(interaction) {
 
     // ---------- modal: salva as alterações ----------
 
-    const discordId =
-        interaction.customId.replace("info_modal_", "");
+    const resto = interaction.customId.replace("info_modal_", "");
+    const tipo = resto.startsWith("stats_") ? "stats" : "perfil";
+    const discordId = resto.replace(/^(perfil|stats)_/, "");
 
-    const classe = interaction.fields
-        .getTextInputValue("classe")
-        .trim()
-        .toUpperCase();
+    let alteracoes = {};
 
-    const wage = interaction.fields.getTextInputValue("wage").trim();
-    const goals = interaction.fields.getTextInputValue("goals").trim();
-    const assists = interaction.fields.getTextInputValue("assists").trim();
-    const motms = interaction.fields.getTextInputValue("motms").trim();
+    if (tipo === "perfil") {
 
-    if (!CLASSES.includes(classe)) {
-        await erro(
-            interaction,
-            "❌ Classe inválida. Use: " + CLASSES.join(", ")
-        );
-        return true;
-    }
+        const classe = interaction.fields
+            .getTextInputValue("classe")
+            .trim()
+            .toUpperCase();
 
-    if (!wage) {
-        await erro(interaction, "❌ O wage não pode ficar vazio.");
-        return true;
-    }
+        const wage = interaction.fields.getTextInputValue("wage").trim();
 
-    if (![goals, assists, motms].every(v => /^\d+$/.test(v))) {
-        await erro(
-            interaction,
-            "❌ Goals, Assists e MOTM's precisam ser números inteiros."
-        );
-        return true;
+        if (!CLASSES.includes(classe)) {
+            await erro(
+                interaction,
+                "❌ Classe inválida. Use: " + CLASSES.join(", ")
+            );
+            return true;
+        }
+
+        if (!wage) {
+            await erro(interaction, "❌ O wage não pode ficar vazio.");
+            return true;
+        }
+
+        alteracoes = { class: classe, wage: wage };
+
+    } else {
+
+        const goals = interaction.fields.getTextInputValue("goals").trim();
+        const assists = interaction.fields.getTextInputValue("assists").trim();
+        const cleansheets = interaction.fields.getTextInputValue("cleansheets").trim();
+        const motms = interaction.fields.getTextInputValue("motms").trim();
+
+        if (![goals, assists, cleansheets, motms].every(v => /^\d+$/.test(v))) {
+            await erro(
+                interaction,
+                "❌ Goals, Assists, Clean sheets e MOTM's precisam ser números inteiros."
+            );
+            return true;
+        }
+
+        alteracoes = {
+            goals: Number(goals),
+            assists: Number(assists),
+            cleansheets: Number(cleansheets),
+            motms: Number(motms)
+        };
+
     }
 
     const { error } = await supabase
         .from("players")
-        .update({
-            class: classe,
-            wage: wage,
-            goals: Number(goals),
-            assists: Number(assists),
-            motms: Number(motms)
-        })
+        .update(alteracoes)
         .eq("guild_id", interaction.guildId)
         .eq("discord_id", discordId);
 
@@ -1722,7 +1920,7 @@ async function processarInfo(interaction) {
         console.error("❌ Erro ao editar jogador:", error);
         await erro(
             interaction,
-            "❌ Não foi possível salvar as alterações."
+            "❌ Não foi possível salvar as alterações. A coluna `cleansheets` existe na tabela `players`?"
         );
         return true;
     }
@@ -1748,6 +1946,7 @@ module.exports = {
     permlistCommand,
     aprovarCommand,
     infoCommand,
+    fixturesCommand,
     contractCommand,
     releaseCommand,
     autoreleaseCommand,

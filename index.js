@@ -15,7 +15,7 @@ const {
 
 const config = require("./config");
 
-// Site + API (substitui o servidor HTTP antigo, tamb\u00e9m serve para o Render)
+// Site + API (substitui o servidor HTTP antigo, também serve para o Render)
 require("./server");
 
 // ======================================================
@@ -43,6 +43,7 @@ const {
     autoreleaseCommand,
     aprovarCommand,
     infoCommand,
+    fixturesCommand,
     executarComando,
     processarBotaoContrato,
     processarInfo
@@ -86,7 +87,7 @@ const {
 } = require("./shouts");
 
 // ======================================================
-// CONFIGURA\u00c7\u00c3O
+// CONFIGURAÇÃO
 // ======================================================
 
 const WELCOME_CHANNEL_ID = "1552633149123596308";
@@ -105,7 +106,8 @@ const COMANDOS_CONTRATO = [
     "excluirtime",
     "autorelease",
     "aprovar",
-    "info"
+    "info",
+    "fixtures"
 ];
 
 // ======================================================
@@ -153,7 +155,8 @@ const commands = [
     excluirTimeCommand,
     autoreleaseCommand,
     aprovarCommand,
-    infoCommand
+    infoCommand,
+    fixturesCommand
 
 ].map(command => command.toJSON());
 
@@ -168,7 +171,7 @@ async function registrarComandos() {
         const rest = new REST({ version: "10" })
             .setToken(config.TOKEN);
 
-        console.log("\ud83d\udd04 Registrando comandos...");
+        console.log("🔄 Registrando comandos...");
 
         await rest.put(
             Routes.applicationCommands(client.user.id),
@@ -176,12 +179,12 @@ async function registrarComandos() {
         );
 
         console.log(
-            `\u2705 ${commands.length} comandos registrados com sucesso.`
+            `✅ ${commands.length} comandos registrados com sucesso.`
         );
 
     } catch (error) {
 
-        console.error("\u274c Erro ao registrar comandos:", error);
+        console.error("❌ Erro ao registrar comandos:", error);
 
     }
 
@@ -200,7 +203,7 @@ client.on("guildMemberAdd", async member => {
         );
 
         if (!canal) {
-            console.error("\u274c Canal de boas-vindas n\u00e3o encontrado.");
+            console.error("❌ Canal de boas-vindas não encontrado.");
             return;
         }
 
@@ -223,14 +226,14 @@ client.on("guildMemberAdd", async member => {
 
         container.addSeparatorComponents(new SeparatorBuilder());
 
-        // T\u00cdTULO
+        // TÍTULO
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "# \ud83d\udc4b Bem-vindo(a) \u00e0 PML"
+                "# 👋 Bem-vindo(a) à PML"
             )
         );
 
-        // USU\u00c1RIO / ID / DATAS / AVATAR
+        // USUÁRIO / ID / DATAS / AVATAR
         container.addSectionComponents(
             new SectionBuilder()
                 .addTextDisplayComponents(
@@ -256,10 +259,10 @@ client.on("guildMemberAdd", async member => {
         // TEXTO
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "Voc\u00ea acabou de entrar na PML. Antes de usar os canais, fa\u00e7a a verifica\u00e7\u00e3o e leia as informa\u00e7\u00f5es principais.\n\n" +
-                `> \ud83d\udeab <#1552633537939898469>\n` +
-                `> \u2705 <#1552648477635248169>\n` +
-                `> \ud83c\udf9f\ufe0f <#1552649548420087909>`
+                "Você acabou de entrar na PML. Antes de usar os canais, faça a verificação e leia as informações principais.\n\n" +
+                `> 🚫 <#1552633537939898469>\n` +
+                `> ✅ <#1552648477635248169>\n` +
+                `> 🎟️ <#1552649548420087909>`
             )
         );
 
@@ -268,7 +271,7 @@ client.on("guildMemberAdd", async member => {
         // FOOTER
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "-# PML \u2022 Pro Mps League"
+                "-# PML • Pro Mps League"
             )
         );
 
@@ -278,12 +281,12 @@ client.on("guildMemberAdd", async member => {
         });
 
         console.log(
-            `\ud83d\udc4b Boas-vindas enviadas para ${member.user.tag}`
+            `👋 Boas-vindas enviadas para ${member.user.tag}`
         );
 
     } catch (error) {
 
-        console.error("\u274c Erro ao enviar boas-vindas:", error);
+        console.error("❌ Erro ao enviar boas-vindas:", error);
 
     }
 
@@ -291,7 +294,7 @@ client.on("guildMemberAdd", async member => {
 
 // ======================================================
 // MENSAGENS DO TICKET
-// NECESS\u00c1RIO PARA ANALISAR AS PRINTS DE PARCERIA
+// NECESSÁRIO PARA ANALISAR AS PRINTS DE PARCERIA
 // ======================================================
 
 client.on("messageCreate", async message => {
@@ -303,7 +306,7 @@ client.on("messageCreate", async message => {
     } catch (error) {
 
         console.error(
-            "\u274c Erro ao processar mensagem do ticket:",
+            "❌ Erro ao processar mensagem do ticket:",
             error
         );
 
@@ -318,10 +321,10 @@ client.on("messageCreate", async message => {
 client.once("clientReady", async () => {
 
     console.log("=================================");
-    console.log("\ud83d\udfe2 VTL BOT ONLINE");
-    console.log(`\ud83e\udd16 Bot: ${client.user.tag}`);
-    console.log(`\ud83c\udd94 ID: ${client.user.id}`);
-    console.log(`\ud83c\udfe0 Servidores: ${client.guilds.cache.size}`);
+    console.log("🟢 VTL BOT ONLINE");
+    console.log(`🤖 Bot: ${client.user.tag}`);
+    console.log(`🆔 ID: ${client.user.id}`);
+    console.log(`🏠 Servidores: ${client.guilds.cache.size}`);
     console.log("=================================");
 
     await registrarComandos();
@@ -329,7 +332,7 @@ client.once("clientReady", async () => {
 });
 
 // ======================================================
-// INTERA\u00c7\u00d5ES
+// INTERAÇÕES
 // ======================================================
 
 client.on("interactionCreate", async interaction => {
@@ -353,13 +356,13 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // INFO - BOT\u00c3O E FORMUL\u00c1RIO DE EDITAR JOGADOR
+        // INFO - BOTÕES E FORMULÁRIOS DE EDITAR JOGADOR (perfil / stats)
         if (interaction.isButton() || interaction.isModalSubmit()) {
             const processado = await processarInfo(interaction);
             if (processado) return;
         }
 
-        // BOT\u00d5ES DE CONTRATO
+        // BOTÕES DE CONTRATO
         if (interaction.isButton()) {
             const processado = await processarBotaoContrato(interaction);
             if (processado) return;
@@ -392,7 +395,7 @@ client.on("interactionCreate", async interaction => {
             if (processado) return;
         }
 
-        // INTERA\u00c7\u00d5ES DO TICKET
+        // INTERAÇÕES DO TICKET
         if (
             interaction.isStringSelectMenu() ||
             interaction.isButton() ||
@@ -432,14 +435,14 @@ client.on("interactionCreate", async interaction => {
     } catch (error) {
 
         console.error(
-            "\u274c Ocorreu um erro ao processar esta intera\u00e7\u00e3o:",
+            "❌ Ocorreu um erro ao processar esta interação:",
             error
         );
 
         try {
 
             const aviso = {
-                content: "\u274c Ocorreu um erro ao processar esta intera\u00e7\u00e3o.",
+                content: "❌ Ocorreu um erro ao processar esta interação.",
                 ephemeral: true
             };
 
@@ -452,7 +455,7 @@ client.on("interactionCreate", async interaction => {
         } catch (replyError) {
 
             console.error(
-                "\u274c N\u00e3o foi poss\u00edvel responder \u00e0 intera\u00e7\u00e3o:",
+                "❌ Não foi possível responder à interação:",
                 replyError
             );
 
@@ -463,54 +466,54 @@ client.on("interactionCreate", async interaction => {
 });
 
 // ======================================================
-// EVENTOS DE CONEX\u00c3O DO DISCORD
+// EVENTOS DE CONEXÃO DO DISCORD
 // ======================================================
 
 client.on("shardReady", shardId => {
-    console.log(`\ud83d\udfe2 SHARD ${shardId} conectado.`);
+    console.log(`🟢 SHARD ${shardId} conectado.`);
 });
 
 client.on("shardDisconnect", (event, shardId) => {
     console.error(
-        `\ud83d\udd34 SHARD ${shardId} desconectou. C\u00f3digo: ${event.code}`
+        `🔴 SHARD ${shardId} desconectou. Código: ${event.code}`
     );
 });
 
 client.on("shardReconnecting", shardId => {
-    console.log(`\ud83d\udfe1 SHARD ${shardId} tentando reconectar...`);
+    console.log(`🟡 SHARD ${shardId} tentando reconectar...`);
 });
 
 client.on("shardResume", (shardId, replayedEvents) => {
     console.log(
-        `\ud83d\udfe2 SHARD ${shardId} reconectado. ` +
+        `🟢 SHARD ${shardId} reconectado. ` +
         `Eventos recuperados: ${replayedEvents}`
     );
 });
 
 client.on("shardError", (error, shardId) => {
-    console.error(`\u274c Erro no SHARD ${shardId}:`, error);
+    console.error(`❌ Erro no SHARD ${shardId}:`, error);
 });
 
 client.on("error", error => {
-    console.error("\u274c Erro do cliente Discord:", error);
+    console.error("❌ Erro do cliente Discord:", error);
 });
 
 client.on("warn", warning => {
-    console.warn("\u26a0\ufe0f Discord.js:", warning);
+    console.warn("⚠️ Discord.js:", warning);
 });
 
 // ======================================================
 // LOGIN
 // ======================================================
 
-console.log("\ud83d\udd11 Conectando ao Discord...");
+console.log("🔑 Conectando ao Discord...");
 
 client.login(config.TOKEN)
 
     .then(() => {
-        console.log("\u2705 Login no Discord realizado.");
+        console.log("✅ Login no Discord realizado.");
     })
 
     .catch(error => {
-        console.error("\u274c Erro ao conectar ao Discord:", error);
+        console.error("❌ Erro ao conectar ao Discord:", error);
     });

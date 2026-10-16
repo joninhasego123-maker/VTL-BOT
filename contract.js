@@ -1767,7 +1767,7 @@ async function processarBotaoContrato(interaction) {
 // /INFO - EDITAR JOGADOR (BOTÕES E MODAIS, SÓ STAFF)
 // Dois formulários (o Discord só permite 5 campos por modal):
 //   perfil -> classe, wage
-//   stats  -> goals, assists, clean sheets, motm's
+//   stats  -> goals, assists, clean sheets, motm's, overall
 // ======================================================
 
 async function processarInfo(interaction) {
@@ -1844,7 +1844,8 @@ async function processarInfo(interaction) {
                     campo("goals", "Goals", player.goals || 0),
                     campo("assists", "Assists", player.assists || 0),
                     campo("cleansheets", "Clean sheets", player.cleansheets || 0),
-                    campo("motms", "MOTM's", player.motms || 0)
+                    campo("motms", "MOTM's", player.motms || 0),
+                    campo("overall", "Overall", player.overall || 0)
                 );
 
         }
@@ -1892,11 +1893,12 @@ async function processarInfo(interaction) {
         const assists = interaction.fields.getTextInputValue("assists").trim();
         const cleansheets = interaction.fields.getTextInputValue("cleansheets").trim();
         const motms = interaction.fields.getTextInputValue("motms").trim();
+        const overall = interaction.fields.getTextInputValue("overall").trim();
 
-        if (![goals, assists, cleansheets, motms].every(v => /^\d+$/.test(v))) {
+        if (![goals, assists, cleansheets, motms, overall].every(v => /^\d+$/.test(v))) {
             await erro(
                 interaction,
-                "❌ Goals, Assists, Clean sheets e MOTM's precisam ser números inteiros."
+                "❌ Goals, Assists, Clean sheets, MOTM's e Overall precisam ser números inteiros."
             );
             return true;
         }
@@ -1905,7 +1907,8 @@ async function processarInfo(interaction) {
             goals: Number(goals),
             assists: Number(assists),
             cleansheets: Number(cleansheets),
-            motms: Number(motms)
+            motms: Number(motms),
+            overall: Number(overall)
         };
 
     }
@@ -1920,7 +1923,7 @@ async function processarInfo(interaction) {
         console.error("❌ Erro ao editar jogador:", error);
         await erro(
             interaction,
-            "❌ Não foi possível salvar as alterações. A coluna `cleansheets` existe na tabela `players`?"
+            "❌ Não foi possível salvar as alterações. As colunas `cleansheets` e `overall` existem na tabela `players`?"
         );
         return true;
     }

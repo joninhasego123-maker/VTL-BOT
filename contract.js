@@ -138,6 +138,7 @@ function textoContrato(teamName, position, funcao) {
 
 // ======================================================
 // CONTAINER DO CONTRATO
+// Título + dados num bloco só, com a logo do time criado à direita
 // ======================================================
 
 function criarContratoContainer({
@@ -153,36 +154,38 @@ function criarContratoContainer({
 
     const container = new ContainerBuilder();
 
-    texto(container, "## 📄 CONTRATO OFICIAL");
+    const titulo = "## 📄 CONTRATO OFICIAL";
 
-    texto(
-        container,
-        `**Manager:** ${manager}\n` +
-        `**Manager ID:** \`${idDe(manager)}\``
-    );
+    const corpo =
+        `**Manager:**\n${manager} (\`${idDe(manager)}\`)\n` +
+        `**Player:**\n${player} (\`${idDe(player)}\`)\n` +
+        `**Team:**\n${teamName}\n` +
+        `**Posição:**\n${position}\n` +
+        `**Função:**\n${funcao}\n` +
+        `**Status:**\n${STATUS_CONTRATO[status] || STATUS_CONTRATO.pending}`;
+
+    if (logoUrl) {
+
+        container.addSectionComponents(
+            new SectionBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(titulo),
+                    new TextDisplayBuilder().setContent(corpo)
+                )
+                .setThumbnailAccessory(
+                    new ThumbnailBuilder().setURL(logoUrl)
+                )
+        );
+
+    } else {
+
+        // Sem logo não dá para usar Section (ela exige a imagem)
+        texto(container, titulo);
+        texto(container, corpo);
+
+    }
 
     separador(container);
-
-    texto(
-        container,
-        `**Jogador:** ${player}\n` +
-        `**Player ID:** \`${idDe(player)}\``
-    );
-
-    separador(container);
-
-    blocoTime(
-        container,
-        textoContrato(teamName, position, funcao),
-        logoUrl
-    );
-
-    separador(container);
-
-    texto(
-        container,
-        `**Status:** ${STATUS_CONTRATO[status] || STATUS_CONTRATO.pending}`
-    );
 
     if (status === "pending") {
 
@@ -203,6 +206,8 @@ function criarContratoContainer({
 
             )
         );
+
+        separador(container);
 
     }
 
@@ -1324,6 +1329,7 @@ async function executarComando(interaction) {
             return erro(interaction, "❌ O cargo do seu time não foi encontrado.");
         }
 
+        // Time criado com /criartime (nome + logo)
         const { data: team, error: teamError } =
             await supabase
                 .from("teams")
@@ -1715,6 +1721,7 @@ async function processarBotaoContrato(interaction) {
         ? await guild.roles.fetch(contract.team_role_id).catch(() => null)
         : null;
 
+    // Time criado com /criartime (nome + logo)
     const { data: team } = await supabase
         .from("teams")
         .select("name, logo_url, role_id")

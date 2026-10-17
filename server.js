@@ -305,23 +305,14 @@ app.get("/auth/callback", async (req, res) => {
         const u = await userRes.json();
         if (!u.id) return res.redirect(SITE_URL + "/#erro");
 
-        // Se ja tem Roblox vinculado, atualiza foto/nick/display e reaplica apelido a cada login
-        try {
-            const { data: lk } = await supabase
-                .from("account_links")
-                .select("roblox_id")
-                .eq("discord_id", String(u.id))
-                .maybeSingle();
-            if (lk && lk.roblox_id) await sincronizar(u.id, lk.roblox_id);
-        } catch (e) {
-            console.error("Erro ao atualizar vinculo no login:", e);
-        }
-
+        // Sessao nova do Discord: ainda NAO passou pelo Roblox (rb: false).
+        // O site vai mandar a pessoa para a etapa 2 em todo login novo.
         const sessao = assinar({
             id: u.id,
             name: u.global_name || u.username,
             username: u.username,
             avatar: u.avatar || "",
+            rb: false,
             exp: Date.now() + 7 * 24 * 60 * 60 * 1000
         });
 
@@ -347,7 +338,15 @@ app.get("/auth/roblox/start", exigirLogin, (req, res) => {
     }
     const nonce = crypto.randomBytes(16).toString("base64url");
     const challenge = crypto.createHash("sha256").update(pkceVerifier(nonce)).digest("base64url");
-    const state = assinar({ t: "rb", d: String(req.user.id), n: nonce, exp: Date.now() + 10 * 60 * 1000 });
+    const state = assinar({
+        t: "rb",
+        d: String(req.user.id),
+        n: nonce,
+        name: req.user.name || "",
+        un: req.user.username || "",
+        av: req.user.avatar || "",
+        exp: Date.now() + 10 * 60 * 1000
+    });
     const url =
         "https://apis.roblox.com/oauth/v1/authorize" +
         "?client_id=" + encodeURIComponent(ROBLOX_CLIENT_ID) +
@@ -396,7 +395,18 @@ app.get("/auth/roblox/callback", async (req, res) => {
         }
 
         const r = await vincular(st.d, String(info.sub));
-        res.redirect(SITE_URL + "/#roblox=" + (r === "ok" ? "ok" : "taken"));
+        if (r !== "ok") return res.redirect(SITE_URL + "/#roblox=taken");
+
+        // Sessao nova, agora verificada no Roblox
+        const sessao = assinar({
+            id: st.d,
+            name: st.name || "",
+            username: st.un || "",
+            avatar: st.av || "",
+            rb: true,
+            exp: Date.now() + 7 * 24 * 60 * 60 * 1000
+        });
+        res.redirect(SITE_URL + "/#token=" + sessao + "&roblox=ok");
     } catch (e) {
         console.error("Erro /auth/roblox/callback:", e);
         res.redirect(SITE_URL + "/#roblox=erro");
@@ -519,7 +529,7 @@ function rota(path, pegar, semVinculo) {
     app.get(path, exigirLogin, async (req, res) => {
         try {
             const d = await carregar();
-            if (!semVinculo && !d.links[req.user.id]) {
+            if (!semVinculo && !(req.user.rb && d.links[req.user.id])) {
                 return res.status(403).json({ error: "link" });
             }
             res.json(await pegar(d, req));
@@ -544,8 +554,8 @@ rota(
                     ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
                     : ""
             },
-            linked: !!lk,
-            roblox: lk
+            linked: !!(lk && req.user.rb),
+            roblox: lk && req.user.rb
                 ? {
                       id: lk.roblox_id,
                       username: lk.roblox_username || "",

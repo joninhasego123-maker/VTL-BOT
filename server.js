@@ -17,6 +17,17 @@ const API_URL = (
 ).replace(/\/$/, "");
 const REDIRECT_URI = API_URL + "/auth/callback";
 
+// Roblox OAuth
+const ROBLOX_CLIENT_ID = process.env.ROBLOX_CLIENT_ID || "";
+const ROBLOX_CLIENT_SECRET = process.env.ROBLOX_CLIENT_SECRET || "";
+const ROBLOX_REDIRECT_URI = process.env.ROBLOX_REDIRECT_URI || API_URL + "/auth/roblox/callback";
+
+// Servidor / cargo / apelido
+const SERVER_ID = process.env.SERVER_ID || "1552629584967503872";
+const VERIFIED_ROLE_ID = process.env.VERIFIED_ROLE_ID || "1554415711148052553";
+// "roblox" = Display name (@username) do Roblox | "discord" = do Discord
+const NICK_SOURCE = (process.env.NICK_SOURCE || "roblox").toLowerCase();
+
 // CORS
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -53,17 +64,178 @@ function verificar(tok) {
 function exigirLogin(req, res, next) {
     const h = req.headers.authorization || "";
     const user = verificar(h.replace(/^Bearer\s+/i, ""));
-    if (!user) return res.status(401).json({ error: "login" });
+    if (!user || !user.id) return res.status(401).json({ error: "login" });
     req.user = user;
     next();
 }
 
-// Login com Discord
+// ---------------------------------------------------------------
+// Discord (usuario por ID, com cache)
+// ---------------------------------------------------------------
+const discordCache = {};
+
+async function buscarDiscord(id, forcar) {
+    const c = discordCache[id];
+    if (!forcar && c && Date.now() - c.at < (c.data ? 6 * 3600e3 : 5 * 60e3)) return c.data;
+
+    let data = null;
+
+    if (BOT_TOKEN) {
+        try {
+            const r = await fetch("https://discord.com/api/v10/users/" + id, {
+                headers: { Authorization: "Bot " + BOT_TOKEN }
+            });
+            if (r.ok) {
+                const u = await r.json();
+                data = {
+                    id: u.id,
+                    username: u.username,
+                    name: u.global_name || u.username,
+                    avatar: u.avatar
+                        ? "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + ".png?size=64"
+                        : ""
+                };
+            }
+        } catch (e) {}
+    }
+
+    if (data || !c || !c.data) discordCache[id] = { at: Date.now(), data };
+    return data || (c && c.data) || null;
+}
+
+// Chamada da API do Discord com o token do bot
+async function discordBot(method, path, body) {
+    if (!BOT_TOKEN) return false;
+    try {
+        const r = await fetch("https://discord.com/api/v10" + path, {
+            method,
+            headers: {
+                Authorization: "Bot " + BOT_TOKEN,
+                "Content-Type": "application/json"
+            },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        if (!r.ok) {
+            console.error("Discord " + method + " " + path + " -> " + r.status, await r.text());
+        }
+        return r.ok;
+    } catch (e) {
+        console.error("Erro Discord " + path + ":", e);
+        return false;
+    }
+}
+
+// "Display name (@username)" com no maximo 32 caracteres (limite do Discord)
+function montarApelido(display, username) {
+    const user = String(username || "").trim();
+    const nome = String(display || "").trim() || user;
+    const sufixo = user ? " (@" + user + ")" : "";
+    const nick = nome + sufixo;
+    if (nick.length <= 32) return nick;
+    const sobra = 32 - sufixo.length;
+    if (sobra >= 1) return nome.slice(0, sobra).trim() + sufixo;
+    return ("@" + user).slice(0, 32);
+}
+
+async function aplicarNoDiscord(discordId, apelido) {
+    if (!BOT_TOKEN || !SERVER_ID) return;
+    const base = "/guilds/" + SERVER_ID + "/members/" + discordId;
+    if (VERIFIED_ROLE_ID) await discordBot("PUT", base + "/roles/" + VERIFIED_ROLE_ID);
+    if (apelido) await discordBot("PATCH", base, { nick: apelido });
+}
+
+// ---------------------------------------------------------------
+// Roblox (dados publicos: nome, display name e foto)
+// ---------------------------------------------------------------
+async function robloxInfo(id) {
+    const out = { id: String(id), username: "", display: "", avatar: "" };
+    try {
+        const r = await fetch("https://users.roblox.com/v1/users/" + id);
+        if (r.ok) {
+            const u = await r.json();
+            out.username = u.name || "";
+            out.display = u.displayName || u.name || "";
+        }
+    } catch (e) {}
+    try {
+        const r = await fetch(
+            "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" +
+                id +
+                "&size=150x150&format=Png&isCircular=false"
+        );
+        if (r.ok) {
+            const j = await r.json();
+            const d = j.data && j.data[0];
+            if (d && d.state === "Completed" && d.imageUrl) out.avatar = d.imageUrl;
+        }
+    } catch (e) {}
+    return out;
+}
+
+// Atualiza o vinculo (foto, nome, username...) e reaplica cargo + apelido
+async function sincronizar(discordId, robloxId) {
+    const [rb, dc] = await Promise.all([robloxInfo(robloxId), buscarDiscord(discordId, true)]);
+
+    const { data: old } = await supabase
+        .from("account_links")
+        .select("*")
+        .eq("discord_id", discordId)
+        .maybeSingle();
+
+    const row = {
+        discord_id: String(discordId),
+        roblox_id: String(robloxId),
+        roblox_username: rb.username || (old && old.roblox_username) || "",
+        roblox_display: rb.display || (old && old.roblox_display) || "",
+        roblox_avatar: rb.avatar || (old && old.roblox_avatar) || "",
+        discord_username: (dc && dc.username) || (old && old.discord_username) || "",
+        discord_name: (dc && dc.name) || (old && old.discord_name) || "",
+        discord_avatar: (dc && dc.avatar) || (old && old.discord_avatar) || "",
+        updated_at: new Date().toISOString()
+    };
+
+    const up = await supabase.from("account_links").upsert(row, { onConflict: "discord_id" });
+    if (up.error) throw up.error;
+
+    // Se o player ja foi aprovado com esse mesmo Roblox, atualiza nick/foto na tabela players
+    const upd = { roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile" };
+    if (row.roblox_username) upd.roblox_nick = row.roblox_username;
+    if (row.roblox_avatar) upd.avatar_url = row.roblox_avatar;
+    const pu = await supabase
+        .from("players")
+        .update(upd)
+        .eq("discord_id", String(discordId))
+        .eq("roblox_id", String(robloxId));
+    if (pu.error) console.error("Erro atualizando players:", pu.error);
+
+    // Cargo + apelido no servidor
+    const nome = NICK_SOURCE === "discord" ? row.discord_name : row.roblox_display;
+    const user = NICK_SOURCE === "discord" ? row.discord_username : row.roblox_username;
+    await aplicarNoDiscord(discordId, montarApelido(nome, user));
+
+    cache = { at: 0, data: null };
+    return row;
+}
+
+async function vincular(discordId, robloxId) {
+    const { data: dup } = await supabase
+        .from("account_links")
+        .select("discord_id")
+        .eq("roblox_id", String(robloxId))
+        .maybeSingle();
+    if (dup && dup.discord_id !== String(discordId)) return "taken";
+    await sincronizar(discordId, robloxId);
+    return "ok";
+}
+
+// ---------------------------------------------------------------
+// Login com Discord (passo 1)
+// ---------------------------------------------------------------
 app.get("/auth/login", (req, res) => {
     if (!CLIENT_ID || !CLIENT_SECRET || !SECRET) {
         return res.status(500).send("Login nao configurado: faltam variaveis de ambiente.");
     }
-    const state = assinar({ exp: Date.now() + 10 * 60 * 1000 });
+    const state = assinar({ t: "dc", exp: Date.now() + 10 * 60 * 1000 });
     const url =
         "https://discord.com/oauth2/authorize" +
         "?client_id=" + encodeURIComponent(CLIENT_ID) +
@@ -78,7 +250,8 @@ app.get("/auth/login", (req, res) => {
 app.get("/auth/callback", async (req, res) => {
     try {
         const { code, state } = req.query;
-        if (!code || !verificar(state)) return res.redirect(SITE_URL + "/#erro");
+        const st = verificar(state);
+        if (!code || !st || st.t !== "dc") return res.redirect(SITE_URL + "/#erro");
 
         const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
             method: "POST",
@@ -104,6 +277,18 @@ app.get("/auth/callback", async (req, res) => {
         const u = await userRes.json();
         if (!u.id) return res.redirect(SITE_URL + "/#erro");
 
+        // Se ja tem Roblox vinculado, atualiza foto/nick/display e reaplica apelido a cada login
+        try {
+            const { data: lk } = await supabase
+                .from("account_links")
+                .select("roblox_id")
+                .eq("discord_id", String(u.id))
+                .maybeSingle();
+            if (lk && lk.roblox_id) await sincronizar(u.id, lk.roblox_id);
+        } catch (e) {
+            console.error("Erro ao atualizar vinculo no login:", e);
+        }
+
         const sessao = assinar({
             id: u.id,
             name: u.global_name || u.username,
@@ -119,39 +304,80 @@ app.get("/auth/callback", async (req, res) => {
     }
 });
 
-// Usuário do Discord de cada player (com cache)
-const discordCache = {};
-
-async function buscarDiscord(id) {
-    const c = discordCache[id];
-    if (c && Date.now() - c.at < (c.data ? 6 * 3600e3 : 5 * 60e3)) return c.data;
-
-    let data = null;
-
-    if (BOT_TOKEN) {
-        try {
-            const r = await fetch("https://discord.com/api/v10/users/" + id, {
-                headers: { Authorization: "Bot " + BOT_TOKEN }
-            });
-            if (r.ok) {
-                const u = await r.json();
-                data = {
-                    id: u.id,
-                    username: u.username,
-                    name: u.global_name || u.username,
-                    avatar: u.avatar
-                        ? "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + ".png?size=64"
-                        : ""
-                };
-            }
-        } catch (e) {}
-    }
-
-    discordCache[id] = { at: Date.now(), data };
-    return data;
+// ---------------------------------------------------------------
+// Login com Roblox (passo 2)
+// ---------------------------------------------------------------
+// O verifier do PKCE e derivado do nonce + SECRET (sem precisar guardar nada no servidor)
+function pkceVerifier(nonce) {
+    return crypto.createHmac("sha256", SECRET).update("pkce:" + nonce).digest("base64url");
 }
 
+// O site chama esta rota (com o token da sessao) e recebe a URL do Roblox
+app.get("/auth/roblox/start", exigirLogin, (req, res) => {
+    if (!ROBLOX_CLIENT_ID || !ROBLOX_CLIENT_SECRET || !SECRET) {
+        return res.status(500).json({ error: "roblox nao configurado" });
+    }
+    const nonce = crypto.randomBytes(16).toString("base64url");
+    const challenge = crypto.createHash("sha256").update(pkceVerifier(nonce)).digest("base64url");
+    const state = assinar({ t: "rb", d: String(req.user.id), n: nonce, exp: Date.now() + 10 * 60 * 1000 });
+    const url =
+        "https://apis.roblox.com/oauth/v1/authorize" +
+        "?client_id=" + encodeURIComponent(ROBLOX_CLIENT_ID) +
+        "&redirect_uri=" + encodeURIComponent(ROBLOX_REDIRECT_URI) +
+        "&scope=" + encodeURIComponent("openid profile") +
+        "&response_type=code" +
+        "&code_challenge=" + encodeURIComponent(challenge) +
+        "&code_challenge_method=S256" +
+        "&state=" + encodeURIComponent(state);
+    res.json({ url });
+});
+
+app.get("/auth/roblox/callback", async (req, res) => {
+    try {
+        const { code, state, error } = req.query;
+        const st = verificar(state);
+        if (error || !code || !st || st.t !== "rb" || !st.d || !st.n) {
+            return res.redirect(SITE_URL + "/#roblox=erro");
+        }
+
+        const tokenRes = await fetch("https://apis.roblox.com/oauth/v1/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: ROBLOX_CLIENT_ID,
+                client_secret: ROBLOX_CLIENT_SECRET,
+                grant_type: "authorization_code",
+                code: String(code),
+                redirect_uri: ROBLOX_REDIRECT_URI,
+                code_verifier: pkceVerifier(st.n)
+            })
+        });
+        const td = await tokenRes.json();
+        if (!td.access_token) {
+            console.error("Erro no token do Roblox:", td);
+            return res.redirect(SITE_URL + "/#roblox=erro");
+        }
+
+        const infoRes = await fetch("https://apis.roblox.com/oauth/v1/userinfo", {
+            headers: { Authorization: "Bearer " + td.access_token }
+        });
+        const info = await infoRes.json();
+        if (!info.sub) {
+            console.error("Userinfo do Roblox sem sub:", info);
+            return res.redirect(SITE_URL + "/#roblox=erro");
+        }
+
+        const r = await vincular(st.d, String(info.sub));
+        res.redirect(SITE_URL + "/#roblox=" + (r === "ok" ? "ok" : "taken"));
+    } catch (e) {
+        console.error("Erro /auth/roblox/callback:", e);
+        res.redirect(SITE_URL + "/#roblox=erro");
+    }
+});
+
+// ---------------------------------------------------------------
 // Dados
+// ---------------------------------------------------------------
 let cache = { at: 0, data: null };
 
 async function carregar() {
@@ -166,6 +392,7 @@ async function carregar() {
         .gte("match_time", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
         .order("match_time", { ascending: true })
         .limit(50);
+    const lq = supabase.from("account_links").select("*");
 
     if (GUILD_ID) {
         pq = pq.eq("guild_id", GUILD_ID);
@@ -174,9 +401,9 @@ async function carregar() {
         fq = fq.eq("guild_id", GUILD_ID);
     }
 
-    const [p, t, c, f] = await Promise.all([pq, tq, cq, fq]);
+    const [p, t, c, f, l] = await Promise.all([pq, tq, cq, fq, lq]);
 
-    if (p.error || t.error || c.error) throw p.error || t.error || c.error;
+    if (p.error || t.error || c.error || l.error) throw p.error || t.error || c.error || l.error;
     // se a tabela fixtures ainda nao existir, o site continua funcionando
     const fixData = f.error ? [] : f.data;
     if (f.error) console.error("Erro fixtures:", f.error);
@@ -187,6 +414,9 @@ async function carregar() {
     const contractByPlayer = {};
     c.data.forEach(x => { contractByPlayer[x.player_id] = x; });
 
+    const links = {};
+    l.data.forEach(x => { links[x.discord_id] = x; });
+
     const players = [];
     const byDiscord = {};
 
@@ -194,15 +424,21 @@ async function carregar() {
         const ct = contractByPlayer[x.discord_id];
         const tm = ct ? teamByRole[ct.team_role_id] : null;
 
+        // so usa os dados do vinculo se for o mesmo Roblox do player aprovado
+        const l0 = links[x.discord_id];
+        const lk = l0 && String(l0.roblox_id) === String(x.roblox_id) ? l0 : null;
+
         const jogador = {
             id: x.roblox_id,
-            nick: x.roblox_nick,
-            link: x.roblox_link,
+            nick: (lk && lk.roblox_username) || x.roblox_nick,
+            display: (lk && lk.roblox_display) || x.roblox_nick,
+            robloxUser: (lk && lk.roblox_username) || x.roblox_nick,
+            link: x.roblox_link || "",
             classe: x.class,
             team: tm ? tm.name : "",
             teamLogo: tm ? tm.logo_url || "" : "",
             wage: x.wage || "",
-            avatar: x.avatar_url || "",
+            avatar: (lk && lk.roblox_avatar) || x.avatar_url || "",
             goals: x.goals || 0,
             assists: x.assists || 0,
             motms: x.motms || 0,
@@ -215,7 +451,7 @@ async function carregar() {
         byDiscord[x.discord_id] = jogador;
     });
 
-    // busca o usuário correto do Discord de cada player (em lotes, com cache)
+    // busca o usuario correto do Discord de cada player (em lotes, com cache)
     const ids = p.data.map(x => x.discord_id);
 
     for (let i = 0; i < ids.length; i += 10) {
@@ -242,7 +478,7 @@ async function carregar() {
         };
     });
 
-    cache = { at: Date.now(), data: { players, teams, fixtures, byDiscord } };
+    cache = { at: Date.now(), data: { players, teams, fixtures, byDiscord, links } };
     return cache.data;
 }
 
@@ -250,10 +486,15 @@ app.get("/", (req, res) => {
     res.send("PML Bot online!");
 });
 
-function rota(path, pegar) {
+// semVinculo = true -> rota liberada mesmo sem Roblox vinculado
+function rota(path, pegar, semVinculo) {
     app.get(path, exigirLogin, async (req, res) => {
         try {
-            res.json(await pegar(await carregar(), req));
+            const d = await carregar();
+            if (!semVinculo && !d.links[req.user.id]) {
+                return res.status(403).json({ error: "link" });
+            }
+            res.json(await pegar(d, req));
         } catch (e) {
             console.error("Erro " + path + ":", e);
             res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
@@ -261,21 +502,35 @@ function rota(path, pegar) {
     });
 }
 
-rota("/api/me", (d, req) => {
-    const jogador = d.byDiscord[req.user.id] || null;
-    return {
-        discord: {
-            id: req.user.id,
-            name: req.user.name,
-            username: req.user.username || "",
-            avatar: req.user.avatar
-                ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
-                : ""
-        },
-        approved: !!jogador,
-        player: jogador
-    };
-});
+rota(
+    "/api/me",
+    (d, req) => {
+        const jogador = d.byDiscord[req.user.id] || null;
+        const lk = d.links[req.user.id] || null;
+        return {
+            discord: {
+                id: req.user.id,
+                name: req.user.name,
+                username: req.user.username || "",
+                avatar: req.user.avatar
+                    ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
+                    : ""
+            },
+            linked: !!lk,
+            roblox: lk
+                ? {
+                      id: lk.roblox_id,
+                      username: lk.roblox_username || "",
+                      display: lk.roblox_display || lk.roblox_username || "",
+                      avatar: lk.roblox_avatar || ""
+                  }
+                : null,
+            approved: !!jogador,
+            player: jogador
+        };
+    },
+    true
+);
 rota("/api/players", d => d.players);
 rota("/api/teams", d => d.teams);
 rota("/api/fixtures", d => d.fixtures);

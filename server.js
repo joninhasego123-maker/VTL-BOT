@@ -197,6 +197,34 @@ async function sincronizar(discordId, robloxId) {
     const up = await supabase.from("account_links").upsert(row, { onConflict: "discord_id" });
     if (up.error) throw up.error;
 
+    // Conta nova: cria o player automaticamente (Class D, Overall 69, Wage 75K)
+    const { data: existe } = await supabase
+        .from("players")
+        .select("discord_id")
+        .eq("discord_id", String(discordId))
+        .maybeSingle();
+    if (!existe) {
+        const novo = {
+            discord_id: String(discordId),
+            roblox_id: String(robloxId),
+            roblox_nick: row.roblox_username,
+            roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile",
+            avatar_url: row.roblox_avatar || "",
+            class: "D",
+            overall: 69,
+            wage: "75K",
+            goals: 0,
+            assists: 0,
+            motms: 0,
+            cleansheets: 0
+        };
+        let ins = await supabase.from("players").insert({ ...novo, guild_id: GUILD_ID || SERVER_ID });
+        // se a tabela nao tiver a coluna guild_id, tenta de novo sem ela
+        if (ins.error) ins = await supabase.from("players").insert(novo);
+        if (ins.error) console.error("Erro criando player:", ins.error);
+        else console.log("Player criado:", row.roblox_username);
+    }
+
     // Se o player ja foi aprovado com esse mesmo Roblox, atualiza nick/foto na tabela players
     const upd = { roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile" };
     if (row.roblox_username) upd.roblox_nick = row.roblox_username;

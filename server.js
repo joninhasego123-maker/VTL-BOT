@@ -560,7 +560,9 @@ rota(
                       id: lk.roblox_id,
                       username: lk.roblox_username || "",
                       display: lk.roblox_display || lk.roblox_username || "",
-                      avatar: lk.roblox_avatar || ""
+                      avatar: lk.roblox_avatar || "",
+                      linkedAt: lk.linked_at || null,
+                      syncedAt: lk.updated_at || null
                   }
                 : null,
             approved: !!jogador,
@@ -572,6 +574,33 @@ rota(
 rota("/api/players", d => d.players);
 rota("/api/teams", d => d.teams);
 rota("/api/fixtures", d => d.fixtures);
+
+// Botao "Sync accounts": atualiza foto, nome, apelido e cargo (1 vez por minuto por pessoa)
+const syncCooldown = {};
+
+app.get("/api/sync", exigirLogin, async (req, res) => {
+    try {
+        if (!req.user.rb) return res.status(403).json({ error: "link" });
+
+        if (Date.now() - (syncCooldown[req.user.id] || 0) < 60 * 1000) {
+            return res.status(429).json({ error: "espere" });
+        }
+
+        const { data: lk } = await supabase
+            .from("account_links")
+            .select("roblox_id")
+            .eq("discord_id", String(req.user.id))
+            .maybeSingle();
+        if (!lk) return res.status(403).json({ error: "link" });
+
+        syncCooldown[req.user.id] = Date.now();
+        await sincronizar(req.user.id, lk.roblox_id);
+        res.json({ ok: true });
+    } catch (e) {
+        console.error("Erro /api/sync:", e);
+        res.status(500).json({ error: "erro" });
+    }
+});
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("API no ar.");

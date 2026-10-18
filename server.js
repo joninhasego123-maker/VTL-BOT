@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const supabase = require("./supabase");
 
 const app = express();
+app.disable("x-powered-by");
 
 const GUILD_ID = process.env.GUILD_ID || null;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
@@ -28,11 +29,43 @@ const VERIFIED_ROLE_ID = process.env.VERIFIED_ROLE_ID || "1554415711148052553";
 // "roblox" = Display name (@username) do Roblox | "discord" = do Discord
 const NICK_SOURCE = (process.env.NICK_SOURCE || "roblox").toLowerCase();
 
-// CORS
+// Origem permitida no CORS (so o seu site). Use CORS_ORIGIN=* para liberar geral.
+const CORS_ORIGIN = process.env.CORS_ORIGIN || SITE_URL;
+
+// Avisos de configuracao no boot
+if (!SECRET) console.warn("[config] SESSION_SECRET ausente: ninguem consegue logar.");
+if (!CLIENT_ID || !CLIENT_SECRET) console.warn("[config] Discord OAuth incompleto.");
+if (!ROBLOX_CLIENT_ID || !ROBLOX_CLIENT_SECRET) console.warn("[config] Roblox OAuth incompleto.");
+if (!BOT_TOKEN) console.warn("[config] Token do bot ausente: cargo/apelido/avatares nao funcionam.");
+
+process.on("unhandledRejection", e => console.error("unhandledRejection:", e));
+process.on("uncaughtException", e => console.error("uncaughtException:", e));
+
+// fetch com timeout (evita a API ficar pendurada se Discord/Roblox travar)
+function fetchT(url, opts, ms) {
+    return fetch(url, { ...(opts || {}), signal: AbortSignal.timeout(ms || 8000) });
+}
+
+// JSON seguro (se a resposta nao for JSON, devolve {})
+async function jsonSeguro(r) {
+    try {
+        return await r.json();
+    } catch (e) {
+        return {};
+    }
+}
+
+// Cabecalhos: CORS + seguranca
 app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
+    res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) {
+        res.setHeader("Cache-Control", "no-store");
+    }
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
 });
@@ -54,7 +87,8 @@ function verificar(tok) {
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
     try {
         const o = JSON.parse(Buffer.from(partes[0], "base64url").toString());
-        if (o.exp && o.exp < Date.now()) return null;
+        // exige expiracao: token sem "exp" nao vale
+        if (!o.exp || o.exp < Date.now()) return null;
         return o;
     } catch (e) {
         return null;
@@ -69,6 +103,10 @@ function exigirLogin(req, res, next) {
     next();
 }
 
+// Cache dos dados da liga (declarado aqui no topo, usado em varias funcoes)
+let cache = { at: 0, data: null };
+let carregando = null;
+
 // ---------------------------------------------------------------
 // Discord (usuario por ID, com cache)
 // ---------------------------------------------------------------
@@ -82,7 +120,7 @@ async function buscarDiscord(id, forcar) {
 
     if (BOT_TOKEN) {
         try {
-            const r = await fetch("https://discord.com/api/v10/users/" + id, {
+            const r = await fetchT("https://discord.com/api/v10/users/" + id, {
                 headers: { Authorization: "Bot " + BOT_TOKEN }
             });
             if (r.ok) {
@@ -107,7 +145,7 @@ async function buscarDiscord(id, forcar) {
 async function discordBot(method, path, body) {
     if (!BOT_TOKEN) return false;
     try {
-        const r = await fetch("https://discord.com/api/v10" + path, {
+        const r = await fetchT("https://discord.com/api/v10" + path, {
             method,
             headers: {
                 Authorization: "Bot " + BOT_TOKEN,
@@ -140,8 +178,11 @@ function montarApelido(display, username) {
 async function aplicarNoDiscord(discordId, apelido) {
     if (!BOT_TOKEN || !SERVER_ID) return;
     const base = "/guilds/" + SERVER_ID + "/members/" + discordId;
-    if (VERIFIED_ROLE_ID) await discordBot("PUT", base + "/roles/" + VERIFIED_ROLE_ID);
-    if (apelido) await discordBot("PATCH", base, { nick: apelido });
+    // cargo e apelido em paralelo
+    await Promise.all([
+        VERIFIED_ROLE_ID ? discordBot("PUT", base + "/roles/" + VERIFIED_ROLE_ID) : null,
+        apelido ? discordBot("PATCH", base, { nick: apelido }) : null
+    ]);
 }
 
 // ---------------------------------------------------------------
@@ -149,26 +190,33 @@ async function aplicarNoDiscord(discordId, apelido) {
 // ---------------------------------------------------------------
 async function robloxInfo(id) {
     const out = { id: String(id), username: "", display: "", avatar: "" };
-    try {
-        const r = await fetch("https://users.roblox.com/v1/users/" + id);
-        if (r.ok) {
-            const u = await r.json();
-            out.username = u.name || "";
-            out.display = u.displayName || u.name || "";
-        }
-    } catch (e) {}
-    try {
-        const r = await fetch(
-            "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" +
-                id +
-                "&size=150x150&format=Png&isCircular=false"
-        );
-        if (r.ok) {
-            const j = await r.json();
-            const d = j.data && j.data[0];
-            if (d && d.state === "Completed" && d.imageUrl) out.avatar = d.imageUrl;
-        }
-    } catch (e) {}
+    // nome e foto em paralelo
+    await Promise.all([
+        (async () => {
+            try {
+                const r = await fetchT("https://users.roblox.com/v1/users/" + id);
+                if (r.ok) {
+                    const u = await r.json();
+                    out.username = u.name || "";
+                    out.display = u.displayName || u.name || "";
+                }
+            } catch (e) {}
+        })(),
+        (async () => {
+            try {
+                const r = await fetchT(
+                    "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" +
+                        id +
+                        "&size=150x150&format=Png&isCircular=false"
+                );
+                if (r.ok) {
+                    const j = await r.json();
+                    const d = j.data && j.data[0];
+                    if (d && d.state === "Completed" && d.imageUrl) out.avatar = d.imageUrl;
+                }
+            } catch (e) {}
+        })()
+    ]);
     return out;
 }
 
@@ -179,7 +227,7 @@ async function sincronizar(discordId, robloxId) {
     const { data: old } = await supabase
         .from("account_links")
         .select("*")
-        .eq("discord_id", discordId)
+        .eq("discord_id", String(discordId))
         .maybeSingle();
 
     const row = {
@@ -281,7 +329,7 @@ app.get("/auth/callback", async (req, res) => {
         const st = verificar(state);
         if (!code || !st || st.t !== "dc") return res.redirect(SITE_URL + "/#erro");
 
-        const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
+        const tokenRes = await fetchT("https://discord.com/api/oauth2/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -293,16 +341,16 @@ app.get("/auth/callback", async (req, res) => {
             })
         });
 
-        const tokenData = await tokenRes.json();
+        const tokenData = await jsonSeguro(tokenRes);
         if (!tokenData.access_token) {
             console.error("Erro no token do Discord:", tokenData);
             return res.redirect(SITE_URL + "/#erro");
         }
 
-        const userRes = await fetch("https://discord.com/api/users/@me", {
+        const userRes = await fetchT("https://discord.com/api/users/@me", {
             headers: { Authorization: "Bearer " + tokenData.access_token }
         });
-        const u = await userRes.json();
+        const u = await jsonSeguro(userRes);
         if (!u.id) return res.redirect(SITE_URL + "/#erro");
 
         // Sessao nova do Discord: ainda NAO passou pelo Roblox (rb: false).
@@ -367,7 +415,7 @@ app.get("/auth/roblox/callback", async (req, res) => {
             return res.redirect(SITE_URL + "/#roblox=erro");
         }
 
-        const tokenRes = await fetch("https://apis.roblox.com/oauth/v1/token", {
+        const tokenRes = await fetchT("https://apis.roblox.com/oauth/v1/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -379,16 +427,16 @@ app.get("/auth/roblox/callback", async (req, res) => {
                 code_verifier: pkceVerifier(st.n)
             })
         });
-        const td = await tokenRes.json();
+        const td = await jsonSeguro(tokenRes);
         if (!td.access_token) {
             console.error("Erro no token do Roblox:", td);
             return res.redirect(SITE_URL + "/#roblox=erro");
         }
 
-        const infoRes = await fetch("https://apis.roblox.com/oauth/v1/userinfo", {
+        const infoRes = await fetchT("https://apis.roblox.com/oauth/v1/userinfo", {
             headers: { Authorization: "Bearer " + td.access_token }
         });
-        const info = await infoRes.json();
+        const info = await jsonSeguro(infoRes);
         if (!info.sub) {
             console.error("Userinfo do Roblox sem sub:", info);
             return res.redirect(SITE_URL + "/#roblox=erro");
@@ -416,11 +464,18 @@ app.get("/auth/roblox/callback", async (req, res) => {
 // ---------------------------------------------------------------
 // Dados
 // ---------------------------------------------------------------
-let cache = { at: 0, data: null };
+// Varias requisicoes ao mesmo tempo compartilham UMA carga (evita rebater Supabase/Discord)
+function carregar() {
+    if (cache.data && Date.now() - cache.at < 30000) return Promise.resolve(cache.data);
+    if (!carregando) {
+        carregando = montarDados().finally(() => {
+            carregando = null;
+        });
+    }
+    return carregando;
+}
 
-async function carregar() {
-    if (cache.data && Date.now() - cache.at < 30000) return cache.data;
-
+async function montarDados() {
     let pq = supabase.from("players").select("*");
     let tq = supabase.from("teams").select("name, logo_url, role_id");
     let cq = supabase.from("contracts").select("player_id, team_role_id").eq("status", "accepted");
@@ -482,7 +537,13 @@ async function carregar() {
             motms: x.motms || 0,
             cleansheets: x.cleansheets || 0,
             overall: x.overall || 0,
-            discord: { id: x.discord_id, name: "", username: "", avatar: "" }
+            discord: {
+                id: x.discord_id,
+                // ja preenche com o que temos salvo; o Discord atualiza por cima
+                name: (lk && lk.discord_name) || "",
+                username: (lk && lk.discord_username) || "",
+                avatar: (lk && lk.discord_avatar) || ""
+            }
         };
 
         players.push(jogador);
@@ -524,6 +585,11 @@ app.get("/", (req, res) => {
     res.send("PML Bot online!");
 });
 
+// Para o Render / monitor de uptime
+app.get("/health", (req, res) => {
+    res.json({ ok: true, uptime: Math.round(process.uptime()) });
+});
+
 // semVinculo = true -> rota liberada mesmo sem Roblox vinculado
 function rota(path, pegar, semVinculo) {
     app.get(path, exigirLogin, async (req, res) => {
@@ -534,8 +600,9 @@ function rota(path, pegar, semVinculo) {
             }
             res.json(await pegar(d, req));
         } catch (e) {
+            // detalhes so no log do servidor, nunca para o navegador
             console.error("Erro " + path + ":", e);
-            res.status(500).json({ error: "erro", detalhe: (e && e.message) || String(e) });
+            res.status(500).json({ error: "erro" });
         }
     });
 }
@@ -578,29 +645,43 @@ rota("/api/fixtures", d => d.fixtures);
 // Botao "Sync accounts": atualiza foto, nome, apelido e cargo (1 vez por minuto por pessoa)
 const syncCooldown = {};
 
+// limpa cooldowns antigos (evita o objeto crescer pra sempre)
+setInterval(() => {
+    const agora = Date.now();
+    Object.keys(syncCooldown).forEach(k => {
+        if (agora - syncCooldown[k] > 5 * 60 * 1000) delete syncCooldown[k];
+    });
+}, 10 * 60 * 1000).unref();
+
 app.get("/api/sync", exigirLogin, async (req, res) => {
+    const uid = req.user.id;
     try {
         if (!req.user.rb) return res.status(403).json({ error: "link" });
 
-        if (Date.now() - (syncCooldown[req.user.id] || 0) < 60 * 1000) {
+        if (Date.now() - (syncCooldown[uid] || 0) < 60 * 1000) {
             return res.status(429).json({ error: "espere" });
         }
 
         const { data: lk } = await supabase
             .from("account_links")
             .select("roblox_id")
-            .eq("discord_id", String(req.user.id))
+            .eq("discord_id", String(uid))
             .maybeSingle();
         if (!lk) return res.status(403).json({ error: "link" });
 
-        syncCooldown[req.user.id] = Date.now();
-        await sincronizar(req.user.id, lk.roblox_id);
+        syncCooldown[uid] = Date.now();
+        await sincronizar(uid, lk.roblox_id);
         res.json({ ok: true });
     } catch (e) {
+        // se falhou, nao prende a pessoa 1 minuto
+        delete syncCooldown[uid];
         console.error("Erro /api/sync:", e);
         res.status(500).json({ error: "erro" });
     }
 });
+
+// Rota inexistente
+app.use((req, res) => res.status(404).json({ error: "nao encontrado" }));
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("API no ar.");

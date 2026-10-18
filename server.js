@@ -9,7 +9,7 @@ const CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || "";
 const SECRET = process.env.SESSION_SECRET || "";
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN || "";
-const SITE_URL = (process.env.SITE_URL || "https://pml-site-1.onrender.com").replace(/\/$/, "");
+const SITE_URL = (process.env.SITE_URL || "https://prompsleague.onrender.com").replace(/\/$/, "");
 const API_URL = (
     process.env.API_URL ||
     process.env.RENDER_EXTERNAL_URL ||

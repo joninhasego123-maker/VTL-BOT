@@ -26,6 +26,23 @@ const CONTRACT_LOG_CHANNEL_ID = "1552634532262584391";
 
 const SITE_URL = "https://prompsleague.onrender.com";
 
+// Limite de jogadores por time
+const MAX_JOGADORES = 16;
+
+// Teto de wage do time (2 milhões e 400K)
+const WAGE_MAXIMO = 2_400_000;
+
+// Só os 8 jogadores com maior wage entram na soma
+const WAGES_CONTADOS = 8;
+
+const TIPOS_IMAGEM = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/gif"
+];
+
 const POSITIONS = [
     "Goleiro",
     "Zagueiro",
@@ -100,6 +117,93 @@ function lerTimestamp(entrada) {
     if (!Number.isFinite(n) || n <= 0) return null;
 
     return n;
+
+}
+
+// "75K" -> 75000 | "1.2M" -> 1200000 | "500000" -> 500000
+// Retorna null se o formato for inválido.
+function lerWage(entrada) {
+
+    const m = String(entrada || "")
+        .trim()
+        .toUpperCase()
+        .replace(/\s/g, "")
+        .replace(",", ".")
+        .match(/^(\d+(?:\.\d+)?)([KM]?)$/);
+
+    if (!m) return null;
+
+    let n = parseFloat(m[1]);
+
+    if (m[2] === "K") n *= 1_000;
+    if (m[2] === "M") n *= 1_000_000;
+
+    return Math.round(n);
+
+}
+
+function formatarWage(n) {
+
+    if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}K`;
+
+    return String(n);
+
+}
+
+// Confere o limite de 16 jogadores e o teto de wage do time
+// (a soma dos 8 maiores wages, já contando o jogador novo).
+async function verificarLimitesTime({ guildId, teamRoleId, playerId }) {
+
+    const { data: contratos, error } = await supabase
+        .from("contracts")
+        .select("player_id")
+        .eq("guild_id", guildId)
+        .eq("team_role_id", teamRoleId)
+        .eq("status", "accepted");
+
+    if (error) {
+        console.error("❌ Erro ao verificar elenco:", error);
+        return { erro: "❌ Não foi possível verificar o elenco do time." };
+    }
+
+    const ids = (contratos || [])
+        .map(c => c.player_id)
+        .filter(id => id !== playerId);
+
+    if (ids.length >= MAX_JOGADORES) {
+        return {
+            erro: `❌ O time já está com o limite de ${MAX_JOGADORES} jogadores.`
+        };
+    }
+
+    const { data: jogadores, error: wageError } = await supabase
+        .from("players")
+        .select("discord_id, wage")
+        .eq("guild_id", guildId)
+        .in("discord_id", [...ids, playerId]);
+
+    if (wageError) {
+        console.error("❌ Erro ao verificar wages:", wageError);
+        return { erro: "❌ Não foi possível verificar os wages do time." };
+    }
+
+    const total = (jogadores || [])
+        .map(j => lerWage(j.wage) || 0)
+        .sort((a, b) => b - a)
+        .slice(0, WAGES_CONTADOS)
+        .reduce((soma, w) => soma + w, 0);
+
+    if (total > WAGE_MAXIMO) {
+        return {
+            erro:
+                `❌ Com esse jogador, a soma dos ${WAGES_CONTADOS} maiores wages do time ` +
+                `ficaria **${formatarWage(total)}** ` +
+                `(máximo: **${formatarWage(WAGE_MAXIMO)}**).`
+        };
+    }
+
+    return { ok: true };
 
 }
 
@@ -327,6 +431,20 @@ async function registrarContrato({ client, contract, status }) {
 // DEFINIÇÃO DOS COMANDOS
 // ======================================================
 
+const criarLigaCommand =
+    new SlashCommandBuilder()
+        .setName("criarliga")
+        .setDescription("Cadastra uma nova liga na PML.")
+        .addStringOption(o => o
+            .setName("nome")
+            .setDescription("Nome da liga.")
+            .setRequired(true))
+        .addAttachmentOption(o => o
+            .setName("logo")
+            .setDescription("Imagem do logo da liga.")
+            .setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
 const criarTimeCommand =
     new SlashCommandBuilder()
         .setName("criartime")
@@ -343,6 +461,11 @@ const criarTimeCommand =
             .setName("cargo")
             .setDescription("Cargo que representa o time.")
             .setRequired(true))
+        .addStringOption(o => o
+            .setName("liga")
+            .setDescription("Liga do time (criada com /criarliga).")
+            .setRequired(true)
+            .setAutocomplete(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 const excluirTimeCommand =
@@ -408,7 +531,7 @@ const aprovarCommand =
             .addChoices(...CLASSES.map(c => ({ name: c, value: c }))))
         .addStringOption(o => o
             .setName("wage")
-            .setDescription("Salário. Ex: 75K")
+            .setDescription("Salário. Ex: 75K (máximo 2.4M)")
             .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
@@ -471,6 +594,42 @@ const autoreleaseCommand =
     new SlashCommandBuilder()
         .setName("autorelease")
         .setDescription("Sai automaticamente do seu time.");
+
+// ======================================================
+// AUTOCOMPLETE DA LIGA (lista as ligas do servidor)
+// ======================================================
+
+async function autocompletarLiga(interaction) {
+
+    if (!interaction.isAutocomplete()) return false;
+    if (interaction.commandName !== "criartime") return false;
+
+    const foco = interaction.options.getFocused(true);
+
+    if (foco.name !== "liga") return false;
+
+    const busca = String(foco.value || "").replace(/[%_\\]/g, "");
+
+    const { data } = await supabase
+        .from("leagues")
+        .select("id, name")
+        .eq("guild_id", interaction.guildId)
+        .ilike("name", `%${busca}%`)
+        .order("name", { ascending: true })
+        .limit(25);
+
+    await interaction
+        .respond(
+            (data || []).map(l => ({
+                name: String(l.name).slice(0, 100),
+                value: l.id
+            }))
+        )
+        .catch(() => {});
+
+    return true;
+
+}
 
 // ======================================================
 // CARGOS
@@ -536,6 +695,7 @@ async function executarComando(interaction) {
 
     // Comandos de administrador
     const SO_ADMIN = {
+        criarliga: "❌ Você precisa ser administrador para criar uma liga.",
         criartime: "❌ Você precisa ser administrador para criar um time.",
         excluirtime: "❌ Você precisa ser administrador para excluir um time.",
         perm: "❌ Você precisa ser administrador.",
@@ -555,14 +715,13 @@ async function executarComando(interaction) {
     }
 
     // ==================================================
-    // /CRIARTIME
+    // /CRIARLIGA
     // ==================================================
 
-    if (nome === "criartime") {
+    if (nome === "criarliga") {
 
-        const nomeTime = interaction.options.getString("nome").trim();
+        const nomeLiga = interaction.options.getString("nome").trim();
         const logo = interaction.options.getAttachment("logo");
-        const cargo = interaction.options.getRole("cargo");
 
         if (!logo) {
             return erro(
@@ -571,21 +730,129 @@ async function executarComando(interaction) {
             );
         }
 
-        const tiposPermitidos = [
-            "image/png",
-            "image/jpeg",
-            "image/jpg",
-            "image/webp",
-            "image/gif"
-        ];
-
         if (
             logo.contentType &&
-            !tiposPermitidos.includes(logo.contentType)
+            !TIPOS_IMAGEM.includes(logo.contentType)
         ) {
             return erro(
                 interaction,
                 "❌ O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF."
+            );
+        }
+
+        const { data: existente, error: buscaError } =
+            await supabase
+                .from("leagues")
+                .select("id")
+                .eq("guild_id", interaction.guildId)
+                .ilike("name", nomeLiga.replace(/[%_\\]/g, "\\$&"))
+                .maybeSingle();
+
+        if (buscaError) {
+            console.error("❌ Erro ao verificar liga:", buscaError);
+            return erro(
+                interaction,
+                "❌ Não foi possível verificar as ligas. A tabela `leagues` existe no Supabase?"
+            );
+        }
+
+        if (existente) {
+            return erro(
+                interaction,
+                "❌ Já existe uma liga com esse nome neste servidor."
+            );
+        }
+
+        const { data: liga, error: insertError } =
+            await supabase
+                .from("leagues")
+                .insert({
+                    guild_id: interaction.guildId,
+                    name: nomeLiga,
+                    logo_url: logo.url,
+                    created_by: interaction.user.id
+                })
+                .select()
+                .single();
+
+        if (insertError) {
+            console.error("❌ Erro ao criar liga:", insertError);
+            return erro(
+                interaction,
+                "❌ Não foi possível cadastrar a liga."
+            );
+        }
+
+        const container = new ContainerBuilder();
+
+        blocoTime(
+            container,
+            "## 🏆 LIGA CADASTRADA\n\n" +
+            `**Nome:** ${liga.name}\n` +
+            `**Criada por:** ${interaction.user}\n` +
+            `**ID:** \`${liga.id}\``,
+            liga.logo_url
+        );
+
+        separador(container);
+
+        texto(container, "-# PML • Ligas");
+
+        return interaction.reply({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
+        });
+
+    }
+
+    // ==================================================
+    // /CRIARTIME (com liga)
+    // ==================================================
+
+    if (nome === "criartime") {
+
+        const nomeTime = interaction.options.getString("nome").trim();
+        const logo = interaction.options.getAttachment("logo");
+        const cargo = interaction.options.getRole("cargo");
+        const ligaId = interaction.options.getString("liga");
+
+        if (!logo) {
+            return erro(
+                interaction,
+                "❌ Você precisa enviar uma imagem como logo."
+            );
+        }
+
+        if (
+            logo.contentType &&
+            !TIPOS_IMAGEM.includes(logo.contentType)
+        ) {
+            return erro(
+                interaction,
+                "❌ O logo precisa ser uma imagem PNG, JPG, WEBP ou GIF."
+            );
+        }
+
+        const { data: liga, error: ligaError } =
+            await supabase
+                .from("leagues")
+                .select("id, name")
+                .eq("guild_id", interaction.guildId)
+                .eq("id", ligaId)
+                .maybeSingle();
+
+        if (ligaError) {
+            console.error("❌ Erro ao verificar liga:", ligaError);
+            return erro(
+                interaction,
+                "❌ Não foi possível verificar a liga."
+            );
+        }
+
+        if (!liga) {
+            return erro(
+                interaction,
+                "❌ Liga não encontrada. Escolha uma da lista (crie com `/criarliga`)."
             );
         }
 
@@ -616,7 +883,7 @@ async function executarComando(interaction) {
             await supabase
                 .from("teams")
                 .select("id")
-                .ilike("name", nomeTime)
+                .ilike("name", nomeTime.replace(/[%_\\]/g, "\\$&"))
                 .eq("guild_id", interaction.guildId)
                 .maybeSingle();
 
@@ -643,6 +910,7 @@ async function executarComando(interaction) {
                     name: nomeTime,
                     logo_url: logo.url,
                     role_id: cargo.id,
+                    league_id: liga.id,
                     created_by: interaction.user.id
                 })
                 .select()
@@ -652,19 +920,21 @@ async function executarComando(interaction) {
             console.error("❌ Erro ao criar time:", insertError);
             return erro(
                 interaction,
-                "❌ Não foi possível cadastrar o time no Supabase."
+                "❌ Não foi possível cadastrar o time. A coluna `league_id` existe na tabela `teams`?"
             );
         }
 
         const container = new ContainerBuilder();
 
-        texto(
+        blocoTime(
             container,
             "## ⚽ TIME CADASTRADO\n\n" +
             `**Nome:** ${time.name}\n` +
+            `**Liga:** ${liga.name}\n` +
             `**Cargo:** ${cargo}\n` +
             `**Criado por:** ${interaction.user}\n` +
-            `**ID:** \`${time.id}\``
+            `**ID:** \`${time.id}\``,
+            time.logo_url
         );
 
         separador(container);
@@ -923,6 +1193,16 @@ async function executarComando(interaction) {
         const link = interaction.options.getString("link").trim();
         const classe = interaction.options.getString("classe");
         const wage = interaction.options.getString("wage").trim();
+
+        const wageNum = lerWage(wage);
+
+        if (wageNum === null || wageNum > WAGE_MAXIMO) {
+            return erro(
+                interaction,
+                "❌ Wage inválido. Use algo como `75K` ou `1.2M` " +
+                `(máximo ${formatarWage(WAGE_MAXIMO)}).`
+            );
+        }
 
         const match = link.match(
             /roblox\.com\/(?:[a-z]{2}\/)?users\/(\d+)/i
@@ -1405,6 +1685,18 @@ async function executarComando(interaction) {
             );
         }
 
+        // ---------- limite de 16 jogadores e teto de wage ----------
+
+        const limites = await verificarLimitesTime({
+            guildId: interaction.guildId,
+            teamRoleId: teamRole.id,
+            playerId: player.id
+        });
+
+        if (limites.erro) {
+            return erro(interaction, limites.erro);
+        }
+
         const { data: contract, error: contractError } =
             await supabase
                 .from("contracts")
@@ -1693,6 +1985,21 @@ async function processarBotaoContrato(interaction) {
         return erro(interaction, "❌ Este contrato já foi respondido.");
     }
 
+    // Confere de novo no aceite: o elenco pode ter mudado desde o envio
+    if (accepted) {
+
+        const limites = await verificarLimitesTime({
+            guildId: contract.guild_id,
+            teamRoleId: contract.team_role_id,
+            playerId: contract.player_id
+        });
+
+        if (limites.erro) {
+            return erro(interaction, limites.erro);
+        }
+
+    }
+
     const newStatus = accepted ? "accepted" : "declined";
 
     const { error: updateError } = await supabase
@@ -1840,7 +2147,7 @@ async function processarInfo(interaction) {
                 .setTitle("Editar perfil")
                 .addComponents(
                     campo("classe", "Classe (D, C-, C, ... S+, X)", player.class),
-                    campo("wage", "Wage (ex: 75K)", player.wage)
+                    campo("wage", "Wage (ex: 75K, máx 2.4M)", player.wage)
                 );
 
         } else {
@@ -1887,8 +2194,14 @@ async function processarInfo(interaction) {
             return true;
         }
 
-        if (!wage) {
-            await erro(interaction, "❌ O wage não pode ficar vazio.");
+        const wageNum = lerWage(wage);
+
+        if (wageNum === null || wageNum > WAGE_MAXIMO) {
+            await erro(
+                interaction,
+                "❌ Wage inválido. Use algo como `75K` ou `1.2M` " +
+                `(máximo ${formatarWage(WAGE_MAXIMO)}).`
+            );
             return true;
         }
 
@@ -1949,6 +2262,7 @@ async function processarInfo(interaction) {
 // ======================================================
 
 module.exports = {
+    criarLigaCommand,
     criarTimeCommand,
     excluirTimeCommand,
     permCommand,
@@ -1961,6 +2275,7 @@ module.exports = {
     releaseCommand,
     autoreleaseCommand,
     executarComando,
+    autocompletarLiga,
     processarBotaoContrato,
     processarInfo
 };

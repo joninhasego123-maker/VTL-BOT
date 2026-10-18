@@ -477,7 +477,7 @@ function carregar() {
 
 async function montarDados() {
     let pq = supabase.from("players").select("*");
-    let tq = supabase.from("teams").select("name, logo_url, role_id");
+    let tq = supabase.from("teams").select("*");
     let cq = supabase.from("contracts").select("player_id, team_role_id").eq("status", "accepted");
     let fq = supabase
         .from("fixtures")
@@ -494,7 +494,15 @@ async function montarDados() {
         fq = fq.eq("guild_id", GUILD_ID);
     }
 
-    const [p, t, c, f, l] = await Promise.all([pq, tq, cq, fq, lq]);
+    // ligas e managers (se a tabela ainda nao existir, o site continua funcionando)
+    let lgq = supabase.from("leagues").select("id, name, logo_url");
+    let mq = supabase.from("manager_permissions").select("manager_id, team_role_id");
+    if (GUILD_ID) {
+        lgq = lgq.eq("guild_id", GUILD_ID);
+        mq = mq.eq("guild_id", GUILD_ID);
+    }
+
+    const [p, t, c, f, l, lg, mg] = await Promise.all([pq, tq, cq, fq, lq, lgq, mq]);
 
     if (p.error || t.error || c.error || l.error) throw p.error || t.error || c.error || l.error;
     // se a tabela fixtures ainda nao existir, o site continua funcionando
@@ -562,7 +570,37 @@ async function montarDados() {
         );
     }
 
-    const teams = t.data.map(x => ({ name: x.name, logo: x.logo_url || "" }));
+    const leagueById = {};
+    (lg.error ? [] : lg.data || []).forEach(x => { leagueById[x.id] = x; });
+
+    const mgByTeam = {};
+    (mg.error ? [] : mg.data || []).forEach(x => { mgByTeam[x.team_role_id] = x.manager_id; });
+
+    const mgInfo = {};
+    await Promise.all(
+        [...new Set(Object.values(mgByTeam))].map(async id => {
+            mgInfo[id] = await buscarDiscord(id);
+        })
+    );
+
+    const teams = t.data.map(x => {
+        const L = x.league_id ? leagueById[x.league_id] : null;
+        const mid = mgByTeam[x.role_id];
+        const m = mid ? mgInfo[mid] : null;
+        return {
+            name: x.name,
+            logo: x.logo_url || "",
+            league: L ? { id: L.id, name: L.name, logo: L.logo_url || "" } : null,
+            manager: mid
+                ? {
+                      id: String(mid),
+                      name: (m && m.name) || "",
+                      username: (m && m.username) || "",
+                      avatar: (m && m.avatar) || ""
+                  }
+                : null
+        };
+    });
 
     const fixtures = fixData.map(x => {
         const h = teamByRole[x.home_role_id];

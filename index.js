@@ -29,7 +29,7 @@ const {
 } = require("./ticket");
 
 // ======================================================
-// CONTRACT
+// CONTRACT (inclui ligas)
 // ======================================================
 
 const {
@@ -38,6 +38,7 @@ const {
     permlistCommand,
     contractCommand,
     releaseCommand,
+    criarLigaCommand,
     criarTimeCommand,
     excluirTimeCommand,
     autoreleaseCommand,
@@ -45,6 +46,7 @@ const {
     infoCommand,
     fixturesCommand,
     executarComando,
+    autocompletarLiga,
     processarBotaoContrato,
     processarInfo
 } = require("./contract");
@@ -102,6 +104,7 @@ const COMANDOS_CONTRATO = [
     "permlist",
     "contract",
     "release",
+    "criarliga",
     "criartime",
     "excluirtime",
     "autorelease",
@@ -145,12 +148,13 @@ const commands = [
     // SHOUTS
     shoutsCommand,
 
-    // CONTRATOS / TIMES
+    // CONTRATOS / LIGAS / TIMES
     permCommand,
     unpermCommand,
     permlistCommand,
     contractCommand,
     releaseCommand,
+    criarLigaCommand,
     criarTimeCommand,
     excluirTimeCommand,
     autoreleaseCommand,
@@ -339,6 +343,12 @@ client.on("interactionCreate", async interaction => {
 
     try {
 
+        // AUTOCOMPLETE (liga do /criartime)
+        if (interaction.isAutocomplete()) {
+            await autocompletarLiga(interaction);
+            return;
+        }
+
         // SHOUTS - COMANDO
         if (
             interaction.isChatInputCommand() &&
@@ -438,6 +448,9 @@ client.on("interactionCreate", async interaction => {
             "❌ Ocorreu um erro ao processar esta interação:",
             error
         );
+
+        // Autocomplete não aceita reply/followUp
+        if (interaction.isAutocomplete()) return;
 
         try {
 

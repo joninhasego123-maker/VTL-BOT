@@ -24,7 +24,7 @@ const supabase = require("./supabase");
 const CONTRACT_CHANNEL_ID = "1552636518886019072";
 const CONTRACT_LOG_CHANNEL_ID = "1552634532262584391";
 
-const SITE_URL = "https://pml-site-1.onrender.com";
+const SITE_URL = "https://prompsleague.onrender.com";
 
 const POSITIONS = [
     "Goleiro",

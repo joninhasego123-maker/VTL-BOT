@@ -106,6 +106,15 @@ function exigirLogin(req, res, next) {
 // Cache dos dados da liga (declarado aqui no topo, usado em varias funcoes)
 let cache = { at: 0, data: null };
 let carregando = null;
+// "geracao" do cache: quando alguem vincula a conta, sobe o numero e uma carga
+// que ja estava em andamento (com dados velhos) nao pode mais gravar no cache
+let gen = 0;
+
+function invalidarCache() {
+    gen++;
+    cache = { at: 0, data: null };
+    carregando = null;
+}
 
 // ---------------------------------------------------------------
 // Discord (usuario por ID, com cache)
@@ -224,11 +233,13 @@ async function robloxInfo(id) {
 async function sincronizar(discordId, robloxId) {
     const [rb, dc] = await Promise.all([robloxInfo(robloxId), buscarDiscord(discordId, true)]);
 
-    const { data: old } = await supabase
+    // limit(1) em vez de maybeSingle: se houver linhas duplicadas, nao quebra
+    const { data: oldRows } = await supabase
         .from("account_links")
         .select("*")
         .eq("discord_id", String(discordId))
-        .maybeSingle();
+        .limit(1);
+    const old = (oldRows && oldRows[0]) || null;
 
     const row = {
         discord_id: String(discordId),
@@ -242,64 +253,80 @@ async function sincronizar(discordId, robloxId) {
         updated_at: new Date().toISOString()
     };
 
-    const up = await supabase.from("account_links").upsert(row, { onConflict: "discord_id" });
+    // Nao depende de a coluna discord_id ter constraint UNIQUE (o upsert falha sem ela)
+    let up = old
+        ? await supabase.from("account_links").update(row).eq("discord_id", String(discordId))
+        : await supabase.from("account_links").insert(row);
+    if (up.error) {
+        console.error("Erro salvando account_links (tentando upsert):", up.error);
+        up = await supabase.from("account_links").upsert(row, { onConflict: "discord_id" });
+    }
     if (up.error) throw up.error;
 
-    // Conta nova: cria o player automaticamente (Class D, Overall 69, Wage 75K)
-    const { data: existe } = await supabase
-        .from("players")
-        .select("discord_id")
-        .eq("discord_id", String(discordId))
-        .maybeSingle();
-    if (!existe) {
-        const novo = {
-            discord_id: String(discordId),
-            roblox_id: String(robloxId),
-            roblox_nick: row.roblox_username,
-            roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile",
-            avatar_url: row.roblox_avatar || "",
-            class: "D",
-            overall: 69,
-            wage: "75K",
-            goals: 0,
-            assists: 0,
-            motms: 0,
-            cleansheets: 0
-        };
-        let ins = await supabase.from("players").insert({ ...novo, guild_id: GUILD_ID || SERVER_ID });
-        // se a tabela nao tiver a coluna guild_id, tenta de novo sem ela
-        if (ins.error) ins = await supabase.from("players").insert(novo);
-        if (ins.error) console.error("Erro criando player:", ins.error);
-        else console.log("Player criado:", row.roblox_username);
+    // A partir daqui o vinculo ja esta salvo: falhas NAO devem derrubar a verificacao
+    try {
+        // Conta nova: cria o player automaticamente (Class D, Overall 69, Wage 75K)
+        const { data: existeRows } = await supabase
+            .from("players")
+            .select("discord_id")
+            .eq("discord_id", String(discordId))
+            .limit(1);
+        const existe = existeRows && existeRows[0];
+        if (!existe) {
+            const novo = {
+                discord_id: String(discordId),
+                roblox_id: String(robloxId),
+                roblox_nick: row.roblox_username,
+                roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile",
+                avatar_url: row.roblox_avatar || "",
+                class: "D",
+                overall: 69,
+                wage: "75K",
+                goals: 0,
+                assists: 0,
+                motms: 0,
+                cleansheets: 0
+            };
+            let ins = await supabase.from("players").insert({ ...novo, guild_id: GUILD_ID || SERVER_ID });
+            // se a tabela nao tiver a coluna guild_id, tenta de novo sem ela
+            if (ins.error) ins = await supabase.from("players").insert(novo);
+            if (ins.error) console.error("Erro criando player:", ins.error);
+            else console.log("Player criado:", row.roblox_username);
+        }
+
+        // Se o player ja foi aprovado com esse mesmo Roblox, atualiza nick/foto na tabela players
+        const upd = { roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile" };
+        if (row.roblox_username) upd.roblox_nick = row.roblox_username;
+        if (row.roblox_avatar) upd.avatar_url = row.roblox_avatar;
+        const pu = await supabase
+            .from("players")
+            .update(upd)
+            .eq("discord_id", String(discordId))
+            .eq("roblox_id", String(robloxId));
+        if (pu.error) console.error("Erro atualizando players:", pu.error);
+    } catch (e) {
+        console.error("Erro ao atualizar players (vinculo ja salvo):", e);
     }
 
-    // Se o player ja foi aprovado com esse mesmo Roblox, atualiza nick/foto na tabela players
-    const upd = { roblox_link: "https://www.roblox.com/users/" + robloxId + "/profile" };
-    if (row.roblox_username) upd.roblox_nick = row.roblox_username;
-    if (row.roblox_avatar) upd.avatar_url = row.roblox_avatar;
-    const pu = await supabase
-        .from("players")
-        .update(upd)
-        .eq("discord_id", String(discordId))
-        .eq("roblox_id", String(robloxId));
-    if (pu.error) console.error("Erro atualizando players:", pu.error);
+    // Cargo + apelido no servidor (nunca lanca erro)
+    try {
+        const nome = NICK_SOURCE === "discord" ? row.discord_name : row.roblox_display;
+        const user = NICK_SOURCE === "discord" ? row.discord_username : row.roblox_username;
+        await aplicarNoDiscord(discordId, montarApelido(nome, user));
+    } catch (e) {
+        console.error("Erro aplicando cargo/apelido:", e);
+    }
 
-    // Cargo + apelido no servidor
-    const nome = NICK_SOURCE === "discord" ? row.discord_name : row.roblox_display;
-    const user = NICK_SOURCE === "discord" ? row.discord_username : row.roblox_username;
-    await aplicarNoDiscord(discordId, montarApelido(nome, user));
-
-    cache = { at: 0, data: null };
+    invalidarCache();
     return row;
 }
 
 async function vincular(discordId, robloxId) {
-    const { data: dup } = await supabase
+    const { data: dups } = await supabase
         .from("account_links")
         .select("discord_id")
-        .eq("roblox_id", String(robloxId))
-        .maybeSingle();
-    if (dup && dup.discord_id !== String(discordId)) return "taken";
+        .eq("roblox_id", String(robloxId));
+    if ((dups || []).some(x => String(x.discord_id) !== String(discordId))) return "taken";
     await sincronizar(discordId, robloxId);
     return "ok";
 }
@@ -312,12 +339,13 @@ app.get("/auth/login", (req, res) => {
         return res.status(500).send("Login nao configurado: faltam variaveis de ambiente.");
     }
     const state = assinar({ t: "dc", exp: Date.now() + 10 * 60 * 1000 });
+    // OBS: sem "prompt=none". Com prompt=none o Discord devolve erro para quem
+    // ainda nao autorizou o app (todo player novo), e a verificacao falhava.
     const url =
         "https://discord.com/oauth2/authorize" +
         "?client_id=" + encodeURIComponent(CLIENT_ID) +
         "&response_type=code" +
         "&scope=identify" +
-        "&prompt=none" +
         "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
         "&state=" + encodeURIComponent(state);
     res.redirect(url);
@@ -325,9 +353,9 @@ app.get("/auth/login", (req, res) => {
 
 app.get("/auth/callback", async (req, res) => {
     try {
-        const { code, state } = req.query;
+        const { code, state, error } = req.query;
         const st = verificar(state);
-        if (!code || !st || st.t !== "dc") return res.redirect(SITE_URL + "/#erro");
+        if (error || !code || !st || st.t !== "dc") return res.redirect(SITE_URL + "/#erro");
 
         const tokenRes = await fetchT("https://discord.com/api/oauth2/token", {
             method: "POST",
@@ -476,6 +504,8 @@ function carregar() {
 }
 
 async function montarDados() {
+    const minhaGen = gen;
+
     let pq = supabase.from("players").select("*");
     let tq = supabase.from("teams").select("*");
     let cq = supabase.from("contracts").select("player_id, team_role_id").eq("status", "accepted");
@@ -615,8 +645,10 @@ async function montarDados() {
         };
     });
 
-    cache = { at: Date.now(), data: { players, teams, fixtures, byDiscord, links } };
-    return cache.data;
+    const dados = { players, teams, fixtures, byDiscord, links };
+    // se alguem vinculou conta enquanto esta carga rodava, os dados estao velhos: nao grava
+    if (minhaGen === gen) cache = { at: Date.now(), data: dados };
+    return dados;
 }
 
 app.get("/", (req, res) => {
@@ -628,14 +660,33 @@ app.get("/health", (req, res) => {
     res.json({ ok: true, uptime: Math.round(process.uptime()) });
 });
 
+// Confere o vinculo direto no banco (nao depende do cache)
+async function temVinculo(discordId) {
+    const { data, error } = await supabase
+        .from("account_links")
+        .select("discord_id")
+        .eq("discord_id", String(discordId))
+        .limit(1);
+    if (error) throw error;
+    return !!(data && data[0]);
+}
+
 // semVinculo = true -> rota liberada mesmo sem Roblox vinculado
 function rota(path, pegar, semVinculo) {
     app.get(path, exigirLogin, async (req, res) => {
         try {
-            const d = await carregar();
-            if (!semVinculo && !(req.user.rb && d.links[req.user.id])) {
-                return res.status(403).json({ error: "link" });
+            if (!semVinculo) {
+                if (!req.user.rb) return res.status(403).json({ error: "link" });
+                let d = await carregar();
+                // se o cache ainda nao conhece o vinculo, confere no banco antes de negar
+                if (!d.links[req.user.id]) {
+                    if (!(await temVinculo(req.user.id))) return res.status(403).json({ error: "link" });
+                    invalidarCache();
+                    d = await carregar();
+                }
+                return res.json(await pegar(d, req));
             }
+            const d = await carregar();
             res.json(await pegar(d, req));
         } catch (e) {
             // detalhes so no log do servidor, nunca para o navegador
@@ -645,12 +696,28 @@ function rota(path, pegar, semVinculo) {
     });
 }
 
-rota(
-    "/api/me",
-    (d, req) => {
-        const jogador = d.byDiscord[req.user.id] || null;
-        const lk = d.links[req.user.id] || null;
-        return {
+// /api/me e leve: le o vinculo direto no banco. So carrega os dados pesados da liga
+// quando a pessoa ja esta vinculada. Assim, quem esta verificando nao depende do cache
+// (que podia estar velho) nem de uma carga grande que podia falhar ou demorar.
+app.get("/api/me", exigirLogin, async (req, res) => {
+    try {
+        const uid = String(req.user.id);
+        const { data: rows, error } = await supabase
+            .from("account_links")
+            .select("*")
+            .eq("discord_id", uid)
+            .limit(1);
+        if (error) throw error;
+        const lk = (rows && rows[0]) || null;
+        const linked = !!(lk && req.user.rb);
+
+        let jogador = null;
+        if (linked) {
+            const d = await carregar();
+            jogador = d.byDiscord[uid] || null;
+        }
+
+        res.json({
             discord: {
                 id: req.user.id,
                 name: req.user.name,
@@ -659,8 +726,8 @@ rota(
                     ? "https://cdn.discordapp.com/avatars/" + req.user.id + "/" + req.user.avatar + ".png?size=128"
                     : ""
             },
-            linked: !!(lk && req.user.rb),
-            roblox: lk && req.user.rb
+            linked,
+            roblox: linked
                 ? {
                       id: lk.roblox_id,
                       username: lk.roblox_username || "",
@@ -672,10 +739,12 @@ rota(
                 : null,
             approved: !!jogador,
             player: jogador
-        };
-    },
-    true
-);
+        });
+    } catch (e) {
+        console.error("Erro /api/me:", e);
+        res.status(500).json({ error: "erro" });
+    }
+});
 rota("/api/players", d => d.players);
 rota("/api/teams", d => d.teams);
 rota("/api/fixtures", d => d.fixtures);
@@ -700,11 +769,12 @@ app.get("/api/sync", exigirLogin, async (req, res) => {
             return res.status(429).json({ error: "espere" });
         }
 
-        const { data: lk } = await supabase
+        const { data: lkRows } = await supabase
             .from("account_links")
             .select("roblox_id")
             .eq("discord_id", String(uid))
-            .maybeSingle();
+            .limit(1);
+        const lk = lkRows && lkRows[0];
         if (!lk) return res.status(403).json({ error: "link" });
 
         syncCooldown[uid] = Date.now();
